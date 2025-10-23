@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebPyChat - Real-time Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .user-count {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .login-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .login-screen h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .login-screen p {
+            margin-bottom: 20px;
+            color: #666;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .login-form {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-form button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .login-form button:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+        }
+
+        .chat-container.active {
+            display: flex;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.system {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .message.user .message-header {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .message.user .message-content {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .typing-indicator {
+            padding: 10px 20px;
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+            min-height: 40px;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+
+        .input-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-form input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-form button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .input-form button:hover {
+            transform: translateY(-2px);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #f44336;
+            color: white;
+            border-radius: 8px;
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        .connection-status.show {
+            display: block;
+        }
+
+        .connection-status.connected {
+            background: #4caf50;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗨️ WebPyChat</h1>
+            <div class="user-count">
+                <span id="userCount">Not connected</span>
+            </div>
+        </div>
+
+        <div class="login-screen" id="loginScreen">
+            <h2>Welcome to WebPyChat</h2>
+            <p>Connect to a WebPyChat server to start chatting with others in real-time.</p>
+            
+            <div class="info-box">
+                <strong>Setup Instructions:</strong><br>
+                1. Run the Python server: <code>python server.py</code><br>
+                2. Enter the server URL below (e.g., <code>http://localhost:5000</code>)<br>
+                3. Choose a username and join the chat
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <input type="text" id="serverInput" placeholder="Server URL (e.g., http://localhost:5000)" required autocomplete="off">
+                <input type="text" id="usernameInput" placeholder="Enter your username" required maxlength="20" autocomplete="off">
+                <button type="submit" id="joinButton">Join Chat</button>
+            </form>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+            <div class="typing-indicator" id="typingIndicator"></div>
+            <div class="input-area">
+                <form class="input-form" id="messageForm">
+                    <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
+                    <button type="submit">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-status" id="connectionStatus">Disconnected</div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let username = '';
+        let serverUrl = '';
+        let typingTimer;
+        let isTyping = false;
+
+        // DOM elements
+        const loginScreen = document.getElementById('loginScreen');
+        const chatContainer = document.getElementById('chatContainer');
+        const loginForm = document.getElementById('loginForm');
+        const serverInput = document.getElementById('serverInput');
+        const usernameInput = document.getElementById('usernameInput');
+        const joinButton = document.getElementById('joinButton');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const messages = document.getElementById('messages');
+        const userCount = document.getElementById('userCount');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // Initialize socket connection
+        function initSocket(url) {
+            return new Promise((resolve, reject) => {
+                try {
+                    socket = io(url, {
+                        transports: ['websocket', 'polling']
+                    });
+
+                    socket.on('connect', () => {
+                        console.log('Connected to server');
+                        showConnectionStatus('Connected', true);
+                        resolve();
+                    });
+
+                    socket.on('connect_error', (error) => {
+                        console.error('Connection error:', error);
+                        showConnectionStatus('Connection failed', false);
+                        reject(error);
+                    });
+
+                    socket.on('disconnect', () => {
+                        console.log('Disconnected from server');
+                        showConnectionStatus('Disconnected', false);
+                    });
+
+                    socket.on('chat_history', (data) => {
+                        console.log('Received chat history:', data.messages.length, 'messages');
+                        data.messages.forEach(msg => {
+                            addMessage(msg.username, msg.message, false);
+                        });
+                    });
+
+                    socket.on('joined', (data) => {
+                        console.log('Joined as:', data.username);
+                        updateUserCount(data.count);
+                    });
+
+                    socket.on('user_joined', (data) => {
+                        addSystemMessage(`${data.username} joined the chat`);
+                        updateUserCount(data.count);
+                    });
+
+                    socket.on('user_left', (data) => {
+                        addSystemMessage(`${data.username} left the chat`);
+                        updateUserCount(data.count);
+                    });
+
+                    socket.on('message', (data) => {
+                        addMessage(data.username, data.message);
+                    });
+
+                    socket.on('typing', (data) => {
+                        handleTypingIndicator(data.username, data.typing);
+                    });
+                } catch (error) {
+                    console.error('Error initializing socket:', error);
+                    reject(error);
+                }
+            });
+        }
+
+        // Login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            serverUrl = serverInput.value.trim();
+            username = usernameInput.value.trim();
+            
+            if (!serverUrl || !username) {
+                return;
+            }
+
+            joinButton.disabled = true;
+            joinButton.textContent = 'Connecting...';
+            
+            try {
+                await initSocket(serverUrl);
+                socket.emit('join', { username });
+                loginScreen.style.display = 'none';
+                chatContainer.classList.add('active');
+                messageInput.focus();
+            } catch (error) {
+                alert('Failed to connect to server. Please check the URL and try again.');
+                joinButton.disabled = false;
+                joinButton.textContent = 'Join Chat';
+            }
+        });
+
+        // Message form submission
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message && socket && socket.connected) {
+                socket.emit('message', { message });
+                messageInput.value = '';
+                sendTypingStatus(false);
+            }
+        });
+
+        // Typing indicator
+        messageInput.addEventListener('input', () => {
+            if (!socket || !socket.connected) return;
+            
+            if (!isTyping) {
+                isTyping = true;
+                sendTypingStatus(true);
+            }
+            
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+                isTyping = false;
+                sendTypingStatus(false);
+            }, 1000);
+        });
+
+        function sendTypingStatus(typing) {
+            if (socket && socket.connected) {
+                socket.emit('typing', { typing });
+            }
+        }
+
+        function handleTypingIndicator(username, typing) {
+            const existing = document.querySelector(`[data-typing-user="${username}"]`);
+            
+            if (typing) {
+                if (!existing) {
+                    const span = document.createElement('span');
+                    span.setAttribute('data-typing-user', username);
+                    span.textContent = `${username} is typing...`;
+                    typingIndicator.appendChild(span);
+                }
+            } else {
+                if (existing) {
+                    existing.remove();
+                }
+            }
+        }
+
+        function addMessage(sender, message, scroll = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = sender;
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = message;
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(content);
+            messages.appendChild(messageDiv);
+            
+            if (scroll) {
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+
+        function addSystemMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = message;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function updateUserCount(count) {
+            userCount.textContent = `${count} user${count !== 1 ? 's' : ''} online`;
+        }
+
+        function showConnectionStatus(message, connected) {
+            connectionStatus.textContent = message;
+            connectionStatus.className = 'connection-status show';
+            if (connected) {
+                connectionStatus.classList.add('connected');
+            }
+            
+            setTimeout(() => {
+                connectionStatus.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

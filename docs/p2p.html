@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebPyChat - Peer-to-Peer Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .user-count {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .login-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .login-screen h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .login-screen p {
+            margin-bottom: 20px;
+            color: #666;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .login-form {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-form button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .login-form button:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+        }
+
+        .chat-container.active {
+            display: flex;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.system {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .message.user .message-header {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .message.user .message-content {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .typing-indicator {
+            padding: 10px 20px;
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+            min-height: 40px;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+
+        .input-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-form input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-form button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .input-form button:hover {
+            transform: translateY(-2px);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #f44336;
+            color: white;
+            border-radius: 8px;
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        .connection-status.show {
+            display: block;
+        }
+
+        .connection-status.connected {
+            background: #4caf50;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box.success {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+
+        .info-box code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗨️ WebPyChat</h1>
+            <div class="user-count">
+                <span id="userCount">P2P Mode - No Server Required!</span>
+            </div>
+        </div>
+
+        <div class="login-screen" id="loginScreen">
+            <h2>Welcome to WebPyChat</h2>
+            <p>This chat works entirely in your browser using peer-to-peer technology. No server or downloads required!</p>
+            
+            <div class="info-box success">
+                <strong>✨ How it works:</strong><br>
+                1. Enter your username below<br>
+                2. Share your Room ID with friends<br>
+                3. They enter the same Room ID to join<br>
+                4. Chat directly browser-to-browser!
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <input type="text" id="usernameInput" placeholder="Enter your username" required maxlength="20" autocomplete="off">
+                <input type="text" id="roomInput" placeholder="Room ID (e.g., 'mychat123')" required maxlength="50" autocomplete="off">
+                <button type="submit" id="joinButton">Join Chat</button>
+            </form>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+            <div class="typing-indicator" id="typingIndicator"></div>
+            <div class="input-area">
+                <form class="input-form" id="messageForm">
+                    <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
+                    <button type="submit">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-status" id="connectionStatus">Disconnected</div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        // P2P Chat Implementation
+        let peer = null;
+        let connections = {};
+        let username = '';
+        let roomId = '';
+        let myPeerId = '';
+
+        // DOM elements
+        const loginScreen = document.getElementById('loginScreen');
+        const chatContainer = document.getElementById('chatContainer');
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('usernameInput');
+        const roomInput = document.getElementById('roomInput');
+        const joinButton = document.getElementById('joinButton');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const messages = document.getElementById('messages');
+        const userCount = document.getElementById('userCount');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        let typingTimer;
+        let isTyping = false;
+
+        // Initialize PeerJS
+        function initPeer() {
+            return new Promise((resolve, reject) => {
+                // Use public PeerJS server
+                peer = new Peer({
+                    config: {
+                        'iceServers': [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    }
+                });
+
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    console.log('My peer ID:', id);
+                    showConnectionStatus('Connected to P2P network', true);
+                    resolve(id);
+                });
+
+                peer.on('error', (error) => {
+                    console.error('Peer error:', error);
+                    showConnectionStatus('Connection error', false);
+                    reject(error);
+                });
+
+                // Handle incoming connections
+                peer.on('connection', (conn) => {
+                    console.log('Incoming connection from:', conn.peer);
+                    setupConnection(conn);
+                });
+            });
+        }
+
+        // Setup connection handlers
+        function setupConnection(conn) {
+            connections[conn.peer] = conn;
+
+            conn.on('open', () => {
+                console.log('Connection established with:', conn.peer);
+                // Send introduction
+                conn.send({
+                    type: 'intro',
+                    username: username,
+                    peerId: myPeerId
+                });
+            });
+
+            conn.on('data', (data) => {
+                handleIncomingData(data, conn);
+            });
+
+            conn.on('close', () => {
+                console.log('Connection closed:', conn.peer);
+                if (connections[conn.peer]) {
+                    const peerUsername = connections[conn.peer].metadata?.username || 'Unknown';
+                    delete connections[conn.peer];
+                    addSystemMessage(`${peerUsername} left the chat`);
+                    updateUserCount();
+                }
+            });
+
+            conn.on('error', (error) => {
+                console.error('Connection error:', error);
+            });
+        }
+
+        // Handle incoming data
+        function handleIncomingData(data, conn) {
+            switch (data.type) {
+                case 'intro':
+                    conn.metadata = { username: data.username, peerId: data.peerId };
+                    addSystemMessage(`${data.username} joined the chat`);
+                    updateUserCount();
+                    // Send back our intro
+                    conn.send({
+                        type: 'intro',
+                        username: username,
+                        peerId: myPeerId
+                    });
+                    // Broadcast to others
+                    broadcastPeerInfo(data.peerId, data.username);
+                    break;
+
+                case 'message':
+                    addMessage(data.username, data.message);
+                    break;
+
+                case 'typing':
+                    handleTypingIndicator(data.username, data.typing);
+                    break;
+
+                case 'peer_info':
+                    // Another peer in the room
+                    if (data.peerId !== myPeerId && !connections[data.peerId]) {
+                        connectToPeer(data.peerId);
+                    }
+                    break;
+            }
+        }
+
+        // Connect to a peer
+        function connectToPeer(peerId) {
+            if (peerId === myPeerId || connections[peerId]) {
+                return;
+            }
+
+            console.log('Connecting to peer:', peerId);
+            const conn = peer.connect(peerId);
+            setupConnection(conn);
+        }
+
+        // Broadcast peer info to all connections
+        function broadcastPeerInfo(peerId, peerUsername) {
+            broadcast({
+                type: 'peer_info',
+                peerId: peerId,
+                username: peerUsername
+            });
+        }
+
+        // Broadcast message to all connections
+        function broadcast(data) {
+            Object.values(connections).forEach(conn => {
+                if (conn.open) {
+                    conn.send(data);
+                }
+            });
+        }
+
+        // Join room
+        async function joinRoom(room) {
+            roomId = room;
+            // Create a deterministic peer ID based on room
+            // In a real room, we'd use a signaling server
+            // For simplicity, we'll use localStorage to share peer IDs
+            
+            const roomKey = `webpychat_room_${roomId}`;
+            let roomPeers = [];
+            
+            try {
+                const stored = localStorage.getItem(roomKey);
+                if (stored) {
+                    roomPeers = JSON.parse(stored);
+                    // Filter out old entries (> 1 hour)
+                    const now = Date.now();
+                    roomPeers = roomPeers.filter(p => (now - p.timestamp) < 3600000);
+                }
+            } catch (e) {
+                console.error('Error reading room data:', e);
+            }
+
+            // Add ourselves to the room
+            roomPeers.push({
+                peerId: myPeerId,
+                username: username,
+                timestamp: Date.now()
+            });
+
+            // Save updated room data
+            try {
+                localStorage.setItem(roomKey, JSON.stringify(roomPeers));
+            } catch (e) {
+                console.error('Error saving room data:', e);
+            }
+
+            // Connect to existing peers
+            roomPeers.forEach(peer => {
+                if (peer.peerId !== myPeerId) {
+                    connectToPeer(peer.peerId);
+                }
+            });
+
+            // Periodically check for new peers
+            setInterval(() => {
+                try {
+                    const stored = localStorage.getItem(roomKey);
+                    if (stored) {
+                        const currentPeers = JSON.parse(stored);
+                        currentPeers.forEach(peer => {
+                            if (peer.peerId !== myPeerId && !connections[peer.peerId]) {
+                                connectToPeer(peer.peerId);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error checking for new peers:', e);
+                }
+            }, 5000);
+        }
+
+        // Login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            username = usernameInput.value.trim();
+            const room = roomInput.value.trim();
+            
+            if (!username || !room) {
+                return;
+            }
+
+            joinButton.disabled = true;
+            joinButton.textContent = 'Connecting...';
+            
+            try {
+                await initPeer();
+                await joinRoom(room);
+                
+                loginScreen.style.display = 'none';
+                chatContainer.classList.add('active');
+                messageInput.focus();
+                
+                updateUserCount();
+                addSystemMessage(`Welcome to room: ${room}`);
+                addSystemMessage('Share this room ID with others to chat!');
+            } catch (error) {
+                console.error('Failed to connect:', error);
+                alert('Failed to initialize P2P connection. Please try again.');
+                joinButton.disabled = false;
+                joinButton.textContent = 'Join Chat';
+            }
+        });
+
+        // Message form submission
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                // Add our own message
+                addMessage(username, message);
+                // Broadcast to peers
+                broadcast({
+                    type: 'message',
+                    username: username,
+                    message: message
+                });
+                messageInput.value = '';
+                sendTypingStatus(false);
+            }
+        });
+
+        // Typing indicator
+        messageInput.addEventListener('input', () => {
+            if (!isTyping) {
+                isTyping = true;
+                sendTypingStatus(true);
+            }
+            
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+                isTyping = false;
+                sendTypingStatus(false);
+            }, 1000);
+        });
+
+        function sendTypingStatus(typing) {
+            broadcast({
+                type: 'typing',
+                username: username,
+                typing: typing
+            });
+        }
+
+        function handleTypingIndicator(username, typing) {
+            const existing = document.querySelector(`[data-typing-user="${username}"]`);
+            
+            if (typing) {
+                if (!existing) {
+                    const span = document.createElement('span');
+                    span.setAttribute('data-typing-user', username);
+                    span.textContent = `${username} is typing...`;
+                    typingIndicator.appendChild(span);
+                }
+            } else {
+                if (existing) {
+                    existing.remove();
+                }
+            }
+        }
+
+        function addMessage(sender, message, scroll = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = sender;
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = message;
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(content);
+            messages.appendChild(messageDiv);
+            
+            if (scroll) {
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+
+        function addSystemMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = message;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function updateUserCount() {
+            const count = Object.keys(connections).length + 1; // +1 for self
+            userCount.textContent = `${count} user${count !== 1 ? 's' : ''} in room`;
+        }
+
+        function showConnectionStatus(message, connected) {
+            connectionStatus.textContent = message;
+            connectionStatus.className = 'connection-status show';
+            if (connected) {
+                connectionStatus.classList.add('connected');
+            }
+            
+            setTimeout(() => {
+                connectionStatus.classList.remove('show');
+            }, 3000);
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (peer) {
+                peer.destroy();
+            }
+        });
+    </script>
+</body>
+</html>
