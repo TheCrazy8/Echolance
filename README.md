@@ -40,6 +40,11 @@ python server.py
 
 The server will start on `http://localhost:5000` by default.
 
+To find your network IP address, run:
+```bash
+python get_ip.py
+```
+
 ### Accessing the Chat
 
 **Option 1: Local Access**
@@ -63,7 +68,9 @@ The server will start on `http://localhost:5000` by default.
 ```
 WebPyChat/
 ├── server.py              # Python backend server
+├── get_ip.py              # Helper script to find network IP
 ├── requirements.txt       # Python dependencies
+├── LICENSE                # MIT License
 ├── templates/
 │   └── index.html        # Web interface (served by Flask)
 ├── docs/
