@@ -218,6 +218,7 @@
                     <button type="button" id="copyRoomLinkBtn">Copy room link</button>
                     <button type="button" id="openRoomQRBtn">Open room QR</button>
                     <button type="button" class="secondary" id="clearRoomBtn">Clear Room Data</button>
+                    <button type="button" class="secondary" id="forceResetBtn" title="Full reset + clear room data">Force Reset Room</button>
                 </div>
             </form>
 
@@ -256,6 +257,9 @@
         let pendingInviter = ''; // inviter peerId from deep link
         let presenceInterval = null;
 
+        // Keys
+        const LAST_PEER_KEY = 'p2p_last_peer';
+
         // DOM
         const loginScreen = document.getElementById('loginScreen');
         const chatContainer = document.getElementById('chatContainer');
@@ -276,6 +280,7 @@
         const copyRoomLinkBtn = document.getElementById('copyRoomLinkBtn');
         const openRoomQRBtn = document.getElementById('openRoomQRBtn');
         const clearRoomBtn = document.getElementById('clearRoomBtn');
+        const forceResetBtn = document.getElementById('forceResetBtn');
         const diagBox = document.getElementById('diagBox');
         const inviteBtn = document.getElementById('inviteBtn');
         const inviteQRBtn = document.getElementById('inviteQRBtn');
@@ -590,17 +595,46 @@
             }
         }
 
-        // Connect to a peer
+        // Connect to a peer with timeout + stale-prune
         function connectToPeer(peerId) {
             if (!peer || peer.destroyed) return;
             if (peerId === myPeerId || connections[peerId]) return;
             const conn = peer.connect(peerId, { reliable: true });
+
+            // Timeout to prune stale entries (10s)
+            const timeout = setTimeout(() => {
+                if (!conn.open) {
+                    try { conn.close(); } catch {}
+                    try {
+                        const roomKey = `webpychat_room_${roomId}`;
+                        const stored = localStorage.getItem(roomKey);
+                        if (stored) {
+                            const arr = JSON.parse(stored).filter(p => p.peerId !== peerId);
+                            localStorage.setItem(roomKey, JSON.stringify(arr));
+                        }
+                        removePeerFromRoom(roomId, peerId);
+                    } catch {}
+                    showDiag('Removed a stale peer entry. Will retry on next discovery tick.', 'warn');
+                }
+            }, 10000);
+
+            conn.on('open', () => { clearTimeout(timeout); });
+            conn.on('close', () => { clearTimeout(timeout); });
             setupConnection(conn);
         }
 
         // Broadcast message to all connections
         function broadcast(data) { Object.values(connections).forEach(conn => { if (conn.open) { safeSend(conn, data); } }); }
         function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
+
+        // Remember last peer for crash recovery
+        function rememberLastPeer() {
+            try {
+                if (myPeerId && roomId) {
+                    localStorage.setItem(LAST_PEER_KEY, JSON.stringify({ peerId: myPeerId, roomId }));
+                }
+            } catch {}
+        }
 
         // Join room
         async function joinRoom(room) {
@@ -627,7 +661,7 @@
                 }
             } catch {}
 
-            // Poll for new peers via local discovery
+            // Poll for new peers + prune
             if (peerDiscoveryInterval) clearInterval(peerDiscoveryInterval);
             peerDiscoveryInterval = setInterval(() => {
                 if (sessionId !== activeSessionId) return;
@@ -647,6 +681,9 @@
             if (pendingInviter && pendingInviter !== myPeerId) {
                 connectToPeer(pendingInviter);
             }
+
+            // Store last peer info for crash recovery cleanup
+            rememberLastPeer();
         }
 
         // Render local history after UI is shown
@@ -692,7 +729,7 @@
                 addSystemMessage(`Welcome to room: ${room}`);
                 addSystemMessage('Use Invite to share a link with your peer ID for cross-device joining.');
             } catch (error) {
-                showDiag('Connection error. Add TURN (Advanced), try another network, or Clear Room Data then retry.', 'error');
+                showDiag('Connection error. Add TURN (Advanced), try another network, or Clear/Force Reset then retry.', 'error');
                 joinButton.disabled = false;
                 joinButton.textContent = 'Join Chat';
             }
@@ -817,12 +854,14 @@
             }
         });
 
+        // Extra safety: some environments miss pagehide; add unload too.
         window.addEventListener('beforeunload', (e) => {
             if (chatContainer.classList.contains('active') && !isDisconnected) {
                 e.preventDefault(); e.returnValue = '';
             }
         });
         window.addEventListener('pagehide', () => { cleanupAndDisconnect(); });
+        window.addEventListener('unload', () => { cleanupAndDisconnect(); });
 
         // Image sending helpers
         imageButton.addEventListener('click', () => {
@@ -889,7 +928,7 @@
                                 <button id="qrCloseBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">Close</button>
                             </div>
                             <div id="qrcode"></div>
-                            <div style="margin-top:8px;font-size:12px;color:#555;word-break:break-all;">${link}</div>
+                            <div style="margin-top:8px;font-size:12px;color:#555;word-break:break-all;"></div>
                         </div>`;
                     document.body.appendChild(modal);
                     modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
@@ -897,6 +936,7 @@
                 }
                 modal.style.display = 'flex';
                 const qrelem = modal.querySelector('#qrcode'); qrelem.innerHTML = '';
+                const linkDiv = modal.querySelector('div[style*="word-break"]'); linkDiv.textContent = link;
                 if (window.QRCode) {
                     try { new QRCode(qrelem, { text: link, width: 256, height: 256 }); }
                     catch { qrelem.textContent = 'QR unavailable'; }
@@ -914,6 +954,22 @@
                     localStorage.removeItem(`p2p_history:${r}`);
                     showConnectionStatus('Room data cleared', true);
                 } catch { alert('Failed to clear local room data.'); }
+            });
+
+            // Force Reset (full cleanup + clear + fence bump)
+            forceResetBtn.addEventListener('click', () => {
+                const r = roomInput.value.trim();
+                if (!r) { alert('Enter a Room ID first.'); return; }
+                if (!confirm(`Force reset local state for room "${r}"?\nThis clears discovery, peers, history and resets the session.`)) return;
+                try { cleanupAndDisconnect(); } catch {}
+                activeSessionId++;
+                try {
+                    localStorage.removeItem(`webpychat_room_${r}`);
+                    localStorage.removeItem(`p2p_peers:${r}`);
+                    localStorage.removeItem(`p2p_history:${r}`);
+                    localStorage.removeItem(LAST_PEER_KEY);
+                } catch {}
+                showConnectionStatus('Force reset completed', true);
             });
         })();
 
@@ -960,6 +1016,32 @@
             });
 
             inviteQRBtn.addEventListener('click', () => inviteBtn.click());
+        })();
+
+        // Startup cleanup: purge any leftover "last peer" and show visible status
+        (function startupCleanup() {
+            try {
+                // Soft cleanup (safe if nothing is active)
+                cleanupAndDisconnect();
+            } catch {}
+            try {
+                const s = localStorage.getItem(LAST_PEER_KEY);
+                if (s) {
+                    const { peerId: lastPeer, roomId: lastRoom } = JSON.parse(s) || {};
+                    if (lastPeer && lastRoom) {
+                        const roomKey = `webpychat_room_${lastRoom}`;
+                        const stored = localStorage.getItem(roomKey);
+                        if (stored) {
+                            const arr = JSON.parse(stored).filter(p => p.peerId !== lastPeer);
+                            localStorage.setItem(roomKey, JSON.stringify(arr));
+                        }
+                    }
+                    localStorage.removeItem(LAST_PEER_KEY);
+                    // surface a small notice
+                    showDiag('Cleaned previous session leftovers.', 'success');
+                    setTimeout(hideDiag, 2500);
+                }
+            } catch {}
         })();
     </script>
 </body>
