@@ -1,4 +1,4 @@
-# WebPyChat 🗨️
+# Echolance 🗨️
 
 A real-time web chat application with **two modes**: peer-to-peer (P2P) chat that works instantly in your browser, or traditional server-based chat with Python backend.
 
@@ -15,7 +15,7 @@ Now you can chat **instantly** without downloading or running anything! Just vis
 - **Share a room ID** - friends use the same room ID to join
 - **Perfect for**: Quick chats, small groups, no technical setup
 
-👉 **[Start P2P Chat Now](https://thecrazy8.github.io/WebPyChat/)**
+👉 **[Start P2P Chat Now](https://thecrazy8.github.io/Echolance/)**
 
 #### 🖥️ Server Mode (For Advanced Use)
 - **Persistent chat history** - messages saved on server
@@ -46,7 +46,7 @@ Now you can chat **instantly** without downloading or running anything! Just vis
 
 ### Option 1: P2P Mode (Instant - No Setup!)
 
-1. Visit **[https://thecrazy8.github.io/WebPyChat/](https://thecrazy8.github.io/WebPyChat/)**
+1. Visit **[https://thecrazy8.github.io/WebPyChat/](https://thecrazy8.github.io/Echolance/)**
 2. Click "Start P2P Chat"
 3. Enter your username and a room ID (e.g., "mychat123")
 4. Share the room ID with friends
