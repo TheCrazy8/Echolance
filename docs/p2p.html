@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="https://github.com/TheCrazy8/WebPyChat/blob/main/docs/images/icon.png?raw=true">
+    <link rel="icon" type="image/png" href="https://github.com/TheCrazy8/Echolance/blob/main/docs/images/icon.png?raw=true">
     <title>Echolance - Peer-to-Peer Chat</title>
     <style>
         * {
@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif';
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -137,14 +137,8 @@
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message.system {
@@ -230,13 +224,8 @@
             z-index: 1000;
         }
 
-        .connection-status.show {
-            display: block;
-        }
-
-        .connection-status.connected {
-            background: #4caf50;
-        }
+        .connection-status.show { display: block; }
+        .connection-status.connected { background: #4caf50; }
 
         .info-box {
             background: #e3f2fd;
@@ -283,10 +272,7 @@
             padding: 6px 10px;
             cursor: pointer;
         }
-        .disconnect-banner button[disabled] {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
+        .disconnect-banner button[disabled] { opacity: 0.6; cursor: not-allowed; }
 
         @media (max-width: 768px) {
             .container {
@@ -314,7 +300,7 @@
         <div class="login-screen" id="loginScreen">
             <h2>Welcome to Echolance</h2>
             <p>This chat works entirely in your browser using peer-to-peer technology. No server or downloads required!</p>
-            
+
             <div class="info-box success">
                 <strong>✨ How it works:</strong><br>
                 1. Enter your username below<br>
@@ -374,7 +360,7 @@
         let typingTimer;
         let isTyping = false;
 
-        // New: History + Peer registry helpers
+        // History + Peer registry helpers
         const MAX_HISTORY = 200;
         const historyKey = (rid) => `p2p_history:${rid}`;
         const peersKey = (rid) => `p2p_peers:${rid}`;
@@ -409,10 +395,25 @@
         function clearMessages() { messages.innerHTML = ''; }
         function scrollToBottom() { messages.scrollTop = messages.scrollHeight; }
 
-        // Initialize PeerJS
+        // Safely reset UI controls for a fresh session
+        function resetUIForNewSession() {
+            isDisconnected = false;
+            messageInput.disabled = false;
+            const sendBtn = messageForm.querySelector('button[type="submit"]');
+            if (sendBtn) sendBtn.disabled = false;
+            disconnectBtn.disabled = false;
+            disconnectBtn.textContent = 'Disconnect';
+            disconnectBanner.style.opacity = '1';
+        }
+
+        // Initialize PeerJS (destroy any previous instance first)
         function initPeer() {
+            try {
+                if (peer && !peer.destroyed) peer.destroy();
+            } catch {}
+            peer = null;
+
             return new Promise((resolve, reject) => {
-                // Use public PeerJS server
                 peer = new Peer({
                     config: {
                         'iceServers': [
@@ -424,7 +425,6 @@
 
                 peer.on('open', (id) => {
                     myPeerId = id;
-                    console.log('My peer ID:', id);
                     showConnectionStatus('Connected to P2P network', true);
                     resolve(id);
                 });
@@ -437,7 +437,6 @@
 
                 // Handle incoming connections
                 peer.on('connection', (conn) => {
-                    console.log('Incoming connection from:', conn.peer);
                     setupConnection(conn);
                 });
             });
@@ -452,7 +451,6 @@
             connections[conn.peer] = conn;
 
             conn.on('open', () => {
-                console.log('Connection established with:', conn.peer);
                 // Send introduction
                 safeSend(conn, { type: 'intro', username, peerId: myPeerId });
                 // On first connection, request history once
@@ -467,7 +465,6 @@
             });
 
             conn.on('close', () => {
-                console.log('Connection closed:', conn.peer);
                 const peerUsername = connections[conn.peer]?.metadata?.username || 'User';
                 delete connections[conn.peer];
                 addSystemMessage(`${peerUsername} left the chat`);
@@ -483,6 +480,7 @@
         function handleIncomingData(data, conn) {
             switch (data.type) {
                 case 'intro':
+                    // Fix: store the sender's peerId, not our own
                     conn.metadata = { username: data.username, peerId: data.peerId };
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
@@ -509,7 +507,6 @@
                     break;
 
                 case 'peer_info':
-                    // Another peer in the room
                     if (data.peerId !== myPeerId && !connections[data.peerId]) {
                         connectToPeer(data.peerId);
                     }
@@ -527,7 +524,6 @@
                         const existing = loadHistory(roomId);
                         const incoming = Array.isArray(data.messages) ? data.messages : [];
                         const all = existing.concat(incoming);
-                        // de-dupe by timestamp|username|message
                         const seen = new Set();
                         const merged = [];
                         for (const m of all) {
@@ -536,7 +532,6 @@
                         }
                         merged.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
                         saveHistory(roomId, merged);
-                        // re-render merged history for consistency
                         clearMessages();
                         for (const m of merged) addMessage(m.username, m.message, m.timestamp, false);
                         scrollToBottom();
@@ -547,7 +542,6 @@
                 case 'user_left': {
                     if (data.peerId) {
                         removePeerFromRoom(roomId, data.peerId);
-                        // also clear from discovery roomKey list locally
                         try {
                             const roomKey = `webpychat_room_${roomId}`;
                             const stored = localStorage.getItem(roomKey);
@@ -566,10 +560,7 @@
 
         // Connect to a peer
         function connectToPeer(peerId) {
-            if (peerId === myPeerId || connections[peerId]) {
-                return;
-            }
-            console.log('Connecting to peer:', peerId);
+            if (peerId === myPeerId || connections[peerId]) return;
             const conn = peer.connect(peerId, { reliable: true });
             setupConnection(conn);
         }
@@ -577,9 +568,7 @@
         // Broadcast message to all connections
         function broadcast(data) {
             Object.values(connections).forEach(conn => {
-                if (conn.open) {
-                    safeSend(conn, data);
-                }
+                if (conn.open) safeSend(conn, data);
             });
         }
         function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
@@ -587,6 +576,12 @@
         // Join room
         async function joinRoom(room) {
             roomId = room;
+
+            // Reset flags and UI for a fresh session
+            historyRequestedOnce = false;
+            historyReceivedOnce = false;
+            resetUIForNewSession();
+
             // For simplicity, use localStorage to share peer IDs for discovery
             const roomKey = `webpychat_room_${roomId}`;
             let roomPeers = [];
@@ -594,7 +589,6 @@
                 const stored = localStorage.getItem(roomKey);
                 if (stored) {
                     roomPeers = JSON.parse(stored);
-                    // Filter out old entries (> 1 hour)
                     const now = Date.now();
                     roomPeers = roomPeers.filter(p => (now - p.timestamp) < 3600000);
                 }
@@ -616,7 +610,6 @@
                 console.error('Error saving room data:', e);
             }
 
-            // Also track a simpler peer list for cleanup
             addPeerToRoom(roomId, myPeerId);
 
             // Connect to existing peers
@@ -627,6 +620,7 @@
             });
 
             // Periodically check for new peers
+            if (peerDiscoveryInterval) clearInterval(peerDiscoveryInterval);
             peerDiscoveryInterval = setInterval(() => {
                 try {
                     const stored = localStorage.getItem(roomKey);
@@ -658,22 +652,21 @@
             e.preventDefault();
             username = usernameInput.value.trim();
             const room = roomInput.value.trim();
-            if (!username || !room) {
-                return;
-            }
+            if (!username || !room) return;
 
             joinButton.disabled = true;
             joinButton.textContent = 'Connecting...';
-            
+
             try {
                 await initPeer();
                 await joinRoom(room);
-                
+
                 loginScreen.style.display = 'none';
                 chatContainer.classList.add('active');
                 disconnectBanner.style.display = 'flex';
+                resetUIForNewSession();
                 messageInput.focus();
-                
+
                 updateUserCount();
                 renderHistoryOnLoad();
                 addSystemMessage(`Welcome to room: ${room}`);
@@ -698,10 +691,8 @@
                     message: message,
                     timestamp: new Date().toISOString()
                 };
-                // Add our own message
                 addMessage(username, message, payload.timestamp);
                 addToHistory(roomId, payload);
-                // Broadcast to peers
                 broadcast(payload);
                 messageInput.value = '';
                 sendTypingStatus(false);
@@ -715,7 +706,6 @@
                 isTyping = true;
                 sendTypingStatus(true);
             }
-            
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
                 isTyping = false;
@@ -724,16 +714,11 @@
         });
 
         function sendTypingStatus(typing) {
-            broadcast({
-                type: 'typing',
-                username: username,
-                typing: typing
-            });
+            broadcast({ type: 'typing', username: username, typing });
         }
 
         function handleTypingIndicator(user, typing) {
             const existing = document.querySelector(`[data-typing-user="${user}"]`);
-            
             if (typing) {
                 if (!existing) {
                     const span = document.createElement('span');
@@ -741,32 +726,28 @@
                     span.textContent = `${user} is typing...`;
                     typingIndicator.appendChild(span);
                 }
-            } else {
-                if (existing) {
-                    existing.remove();
-                }
+            } else if (existing) {
+                existing.remove();
             }
         }
 
         function addMessage(sender, message, timestamp = null, scroll = true) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message user';
-            
+
             const header = document.createElement('div');
             header.className = 'message-header';
             header.textContent = sender + (timestamp ? ` • ${new Date(timestamp).toLocaleTimeString()}` : '');
-            
+
             const content = document.createElement('div');
             content.className = 'message-content';
             content.textContent = message;
-            
+
             messageDiv.appendChild(header);
             messageDiv.appendChild(content);
             messages.appendChild(messageDiv);
-            
-            if (scroll) {
-                messages.scrollTop = messages.scrollHeight;
-            }
+
+            if (scroll) messages.scrollTop = messages.scrollHeight;
         }
 
         function addSystemMessage(message) {
@@ -785,13 +766,8 @@
         function showConnectionStatus(message, connected) {
             connectionStatus.textContent = message;
             connectionStatus.className = 'connection-status show';
-            if (connected) {
-                connectionStatus.classList.add('connected');
-            }
-            
-            setTimeout(() => {
-                connectionStatus.classList.remove('show');
-            }, 3000);
+            if (connected) connectionStatus.classList.add('connected');
+            setTimeout(() => connectionStatus.classList.remove('show'), 3000);
         }
 
         // Broadcast helper used by cleanup
@@ -799,24 +775,14 @@
             Object.values(connections).forEach(c => { if (c.open) safeSend(c, data); });
         }
 
-        // Robust cleanup across browsers (desktop + mobile)
+        // Cleanup and disconnect
         function cleanupAndDisconnect() {
+            try { broadcastToAll({ type: 'user_left', peerId: myPeerId, username }); } catch {}
+            try { Object.values(connections).forEach(c => { try { c.close(); } catch {} }); } catch {}
+            try { if (peer && !peer.destroyed) peer.destroy(); } catch {}
+            try { peer = null; } catch {}
             try {
-                // Inform peers
-                broadcastToAll({ type: 'user_left', peerId: myPeerId, username });
-            } catch {}
-            try {
-                // Close peer data connections
-                Object.values(connections).forEach(c => { try { c.close(); } catch {} });
-            } catch {}
-            try {
-                // Destroy PeerJS instance
-                if (peer && !peer.destroyed) peer.destroy();
-            } catch {}
-            try {
-                // Remove from simple room peer list
                 if (myPeerId && roomId) removePeerFromRoom(roomId, myPeerId);
-                // Also remove from discovery list used in joinRoom
                 if (roomId && myPeerId) {
                     const roomKey = `webpychat_room_${roomId}`;
                     const stored = localStorage.getItem(roomKey);
@@ -826,12 +792,8 @@
                     }
                 }
             } catch {}
-            try {
-                if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; }
-            } catch {}
-            try {
-                connections = {};
-            } catch {}
+            try { if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; } } catch {}
+            try { connections = {}; } catch {}
         }
 
         // Manual disconnect button handler
@@ -846,12 +808,13 @@
                 addSystemMessage('You disconnected from the room.');
                 showConnectionStatus('Disconnected', false);
                 disconnectBtn.textContent = 'Disconnected';
-                // Disable input after disconnect
-                messageInput.disabled = true;
-                const sendBtn = messageForm.querySelector('button[type="submit"]');
-                if (sendBtn) sendBtn.disabled = true;
-                // Dim banner slightly
-                disconnectBanner.style.opacity = '0.9';
+
+                // Return to login to allow a new connection immediately
+                chatContainer.classList.remove('active');
+                loginScreen.style.display = 'flex';
+                disconnectBanner.style.display = 'none';
+                joinButton.disabled = false;
+                joinButton.textContent = 'Join Chat';
             } catch (err) {
                 console.error('Disconnect failed:', err);
                 disconnectBtn.disabled = false;
@@ -867,11 +830,11 @@
                 e.returnValue = '';
             }
         });
+
         // Ensure cleanup when actually leaving the page
         window.addEventListener('pagehide', () => { cleanupAndDisconnect(); });
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') cleanupAndDisconnect();
-        });
+
+        // Note: Removed visibilitychange-based cleanup to avoid accidental disconnects when the tab is backgrounded
     </script>
 </body>
 </html>
