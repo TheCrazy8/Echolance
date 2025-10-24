@@ -175,7 +175,7 @@
         <div class="header">
             <h1>🗨️ Echolance</h1>
             <div class="header-right">
-                <span class="pill" id="userCount">P2P Mode</span>
+                <span class="pill" id="userCount" title="P2P Mode">P2P Mode</span>
                 <button class="btn-small" id="inviteBtn" style="display:none;">Invite</button>
                 <button class="btn-small" id="inviteQRBtn" style="display:none;">QR</button>
             </div>
@@ -322,6 +322,9 @@
         const ROOM_ENTRY_TTL_MS = 5 * 60 * 1000;   // 5 minutes TTL
         const HEARTBEAT_MS = 30 * 1000;            // 30s heartbeat
 
+        // Real-time roster (peerId -> { username, lastSeen })
+        const roster = new Map();
+
         function humanSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
             const i = Math.floor(Math.log(bytes) / Math.log(1024));
@@ -388,7 +391,7 @@
             history.replaceState({}, '', url);
         }
 
-        // Presence heartbeat + prune
+        // Presence heartbeat + prune (localStorage + P2P broadcast)
         function updateRoomPresence(roomKey) {
             try {
                 const stored = JSON.parse(localStorage.getItem(roomKey) || '[]');
@@ -399,6 +402,34 @@
                 if (idx >= 0) pruned[idx] = selfEntry; else pruned.push(selfEntry);
                 localStorage.setItem(roomKey, JSON.stringify(pruned));
             } catch {}
+        }
+
+        function broadcastPresence() {
+            if (!myPeerId) return;
+            setRoster(myPeerId, username);
+            broadcast({ type: 'presence', peerId: myPeerId, username, ts: Date.now() });
+        }
+
+        function setRoster(peerId, name) {
+            roster.set(peerId, { username: name || 'User', lastSeen: Date.now() });
+            updateUserCount();
+        }
+
+        function removeFromRoster(peerId) {
+            roster.delete(peerId);
+            updateUserCount();
+        }
+
+        function pruneRoster() {
+            const now = Date.now();
+            let changed = false;
+            for (const [pid, info] of roster.entries()) {
+                if (now - (info.lastSeen || 0) > ROOM_ENTRY_TTL_MS) {
+                    roster.delete(pid);
+                    changed = true;
+                }
+            }
+            if (changed) updateUserCount();
         }
 
         // Build ICE servers from UI (TURN support)
@@ -436,6 +467,7 @@
             // hard reset
             try { if (peer && !peer.destroyed) peer.destroy(); } catch {}
             peer = null; myPeerId = ''; connections = {};
+            roster.clear();
             historyRequestedOnce = false; historyReceivedOnce = false;
             if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; }
             if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
@@ -495,6 +527,8 @@
                     historyRequestedOnce = true;
                     safeSend(conn, { type: 'history_request' });
                 }
+                // Optimistically add to roster until intro arrives
+                setRoster(conn.peer, conn.metadata?.username || 'User');
             });
 
             conn.on('data', (data) => {
@@ -506,6 +540,7 @@
                 if (sessionId !== activeSessionId) return;
                 const peerUsername = connections[conn.peer]?.metadata?.username || 'User';
                 delete connections[conn.peer];
+                removeFromRoster(conn.peer);
                 addSystemMessage(`${peerUsername} left the chat`);
                 updateUserCount();
             });
@@ -527,10 +562,16 @@
                         return;
                     }
                     conn.metadata = { username: data.username, peerId: data.peerId };
+                    setRoster(data.peerId, data.username);
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
                     safeSend(conn, { type: 'intro', username, peerId: myPeerId, room: roomId });
                     broadcast({ type: 'peer_info', peerId: data.peerId, username: data.username });
+                    break;
+                }
+
+                case 'presence': {
+                    if (data.peerId) setRoster(data.peerId, data.username || 'User');
                     break;
                 }
 
@@ -559,7 +600,10 @@
                 case 'typing': handleTypingIndicator(data.username, data.typing); break;
 
                 case 'peer_info':
-                    if (data.peerId !== myPeerId && !connections[data.peerId]) connectToPeer(data.peerId);
+                    if (data.peerId !== myPeerId) {
+                        setRoster(data.peerId, data.username || 'User');
+                        if (!connections[data.peerId]) connectToPeer(data.peerId);
+                    }
                     break;
 
                 case 'history_request': {
@@ -599,6 +643,7 @@
                 case 'user_left': {
                     if (data.peerId) {
                         removePeerFromRoom(roomId, data.peerId);
+                        removeFromRoster(data.peerId);
                         try {
                             const roomKey = `webpychat_room_${roomId}`;
                             const stored = localStorage.getItem(roomKey);
@@ -675,18 +720,31 @@
             historyRequestedOnce = false; historyReceivedOnce = false;
             resetUIForNewSession(); hideDiag();
 
-            // Presence, prune, heartbeat (local discovery – helps in same-browser sessions)
+            // Presence, prune, heartbeat (local discovery + P2P presence)
             const roomKey = `webpychat_room_${roomId}`;
             updateRoomPresence(roomKey);
             if (presenceInterval) clearInterval(presenceInterval);
-            presenceInterval = setInterval(() => updateRoomPresence(roomKey), HEARTBEAT_MS);
+            presenceInterval = setInterval(() => {
+                updateRoomPresence(roomKey);
+                broadcastPresence();
+                pruneRoster();
+            }, HEARTBEAT_MS);
+
+            // Also do an immediate presence broadcast when joining
+            setRoster(myPeerId, username);
+            broadcastPresence();
 
             // Connect to any seen peers locally (if same device/session)
             try {
                 const stored = localStorage.getItem(roomKey);
                 if (stored) {
                     const roomPeers = JSON.parse(stored);
-                    roomPeers.forEach(peerInfo => { if (peerInfo.peerId !== myPeerId) connectToPeer(peerInfo.peerId); });
+                    roomPeers.forEach(peerInfo => {
+                        if (peerInfo.peerId !== myPeerId) {
+                            setRoster(peerInfo.peerId, peerInfo.username || 'User');
+                            connectToPeer(peerInfo.peerId);
+                        }
+                    });
                 }
             } catch {}
 
@@ -700,19 +758,28 @@
                     if (stored) {
                         const currentPeers = JSON.parse(stored);
                         currentPeers.forEach(peerInfo => {
-                            if (peerInfo.peerId !== myPeerId && !connections[peerInfo.peerId]) connectToPeer(peerInfo.peerId);
+                            if (peerInfo.peerId !== myPeerId && !connections[peerInfo.peerId]) {
+                                setRoster(peerInfo.peerId, peerInfo.username || 'User');
+                                connectToPeer(peerInfo.peerId);
+                            }
                         });
                     }
                 } catch {}
             }, 5000);
 
-            // If we have an inviter from deep link, connect to them to bootstrap cross-device mesh
-            if (pendingInviter && pendingInviter !== myPeerId) {
-                connectToPeer(pendingInviter);
-            }
-
             // Store last peer info for crash recovery cleanup
             rememberLastPeer();
+
+            // Listen for cross-tab updates to presence
+            window.addEventListener('storage', (e) => {
+                if (e.key === roomKey) {
+                    try {
+                        const arr = JSON.parse(e.newValue || '[]');
+                        arr.forEach(p => setRoster(p.peerId, p.username || 'User'));
+                        pruneRoster();
+                    } catch {}
+                }
+            });
         }
 
         // Render local history after UI is shown
@@ -829,8 +896,12 @@
         }
 
         function updateUserCount() {
-            const count = Object.keys(connections).length + 1;
-            userCount.textContent = `${count} user${count !== 1 ? 's' : ''} in room`;
+            // Prefer roster (real-time), fall back to connection count
+            pruneRoster();
+            const count = Math.max(roster.size || 0, Object.keys(connections).length + (myPeerId ? 1 : 0));
+            const names = Array.from(roster.values()).map(v => v.username).filter(Boolean);
+            userCount.textContent = `${count} online`;
+            userCount.title = names.length ? `Online: ${names.join(', ')}` : 'Online users';
         }
 
         function showConnectionStatus(message, connected) {
@@ -861,6 +932,7 @@
             try { if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; } } catch {}
             try { if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; } } catch {}
             try { connections = {}; } catch {}
+            try { roster.clear(); updateUserCount(); } catch {}
         }
 
         disconnectBtn.addEventListener('click', () => {
