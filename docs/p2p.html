@@ -33,42 +33,65 @@
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            text-align: center;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+        .header h1 { font-size: 20px; }
+        .header-right { display: flex; gap: 8px; align-items: center; }
 
-        .header h1 { font-size: 24px; margin-bottom: 5px; }
-        .user-count { font-size: 14px; opacity: 0.9; }
+        .pill {
+            padding: 6px 10px; background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 999px;
+            font-size: 12px;
+        }
+        .btn-small {
+            padding: 6px 10px; background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 8px;
+            font-size: 12px; cursor: pointer;
+        }
+        .btn-small:hover { background: rgba(255,255,255,0.25); }
 
         .login-screen {
             flex: 1; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; padding: 40px;
+            justify-content: center; align-items: center; padding: 20px 24px 32px;
         }
 
-        .login-screen h2 { margin-bottom: 20px; color: #333; }
-        .login-screen p { margin-bottom: 20px; color: #666; text-align: center; max-width: 500px; }
+        .login-screen h2 { margin-bottom: 14px; color: #333; }
+        .login-screen p { margin-bottom: 14px; color: #666; text-align: center; max-width: 560px; }
 
-        .login-form { width: 100%; max-width: 420px; }
+        .login-form { width: 100%; max-width: 480px; }
+
         .login-form input {
-            width: 100%; padding: 15px; margin-bottom: 12px;
+            width: 100%; padding: 14px; margin-bottom: 12px;
             border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;
         }
         .login-form input:focus { outline: none; border-color: #667eea; }
+
         .login-form button {
-            width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: transform 0.2s;
         }
         .login-form button:hover { transform: translateY(-2px); }
         .login-form button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .share-row {
-            display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
-        }
+        .share-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
         .share-row button {
             padding: 10px 12px; background: #eef2ff; color: #334155; border: 1px solid #c7d2fe; border-radius: 8px; cursor: pointer; font-size: 14px;
         }
         .share-row button:hover { background: #e0e7ff; }
         .share-row button.secondary { background: #f3f4f6; border-color: #e5e7eb; }
+
+        details.advanced { margin-top: 10px; }
+        details.advanced > summary {
+            padding: 8px 10px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 14px; color: #111827;
+            user-select: none;
+        }
+        .adv-body { padding: 10px 12px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+        .adv-field { display: grid; grid-template-columns: 140px 1fr; gap: 10px; margin-bottom: 8px; align-items: center; }
+        .adv-field input[type="text"], .adv-field input[type="password"] { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; }
+        .adv-check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
 
         .chat-container { flex: 1; display: none; flex-direction: column; }
         .chat-container.active { display: flex; }
@@ -80,22 +103,17 @@
 
         .message.system { text-align: center; color: #666; font-size: 14px; font-style: italic; }
         .message.user .message-header { font-weight: bold; color: #667eea; margin-bottom: 5px; }
-        .message.user .message-content {
-            background: white; padding: 10px 15px; border-radius: 8px; display: inline-block; max-width: 80%; word-wrap: break-word;
-        }
-
-        .message.user .image-content {
-            display: inline-block; background: white; padding: 8px; border-radius: 8px; max-width: 80%;
-        }
+        .message.user .message-content { background: white; padding: 10px 15px; border-radius: 8px; display: inline-block; max-width: 80%; word-wrap: break-word; }
+        .message.user .image-content { display: inline-block; background: white; padding: 8px; border-radius: 8px; max-width: 80%; }
         .message.user .image-content img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
         .message.user .image-caption { font-size: 12px; color: #555; margin-top: 6px; word-break: break-all; }
 
         .typing-indicator { padding: 10px 20px; color: #666; font-size: 14px; font-style: italic; min-height: 40px; }
 
         .input-area { padding: 20px; background: white; border-top: 1px solid #ddd; }
-        .input-form { display: flex; gap: 10px; }
+        .input-form { display: flex; gap: 10px; flex-wrap: wrap; }
         .input-form input[type="text"] {
-            flex: 1; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;
+            flex: 1; min-width: 200px; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;
         }
         .input-form input[type="text"]:focus { outline: none; border-color: #667eea; }
         .input-form button {
@@ -142,8 +160,10 @@
     <div class="container">
         <div class="header">
             <h1>🗨️ Echolance</h1>
-            <div class="user-count">
-                <span id="userCount">P2P Mode - No Server Required!</span>
+            <div class="header-right">
+                <span class="pill" id="userCount">P2P Mode</span>
+                <button class="btn-small" id="inviteBtn" style="display:none;">Invite</button>
+                <button class="btn-small" id="inviteQRBtn" style="display:none;">QR</button>
             </div>
         </div>
 
@@ -159,19 +179,44 @@
 
             <div class="info-box success">
                 <strong>✨ How it works:</strong><br>
-                1. Enter your username below<br>
-                2. Share your Room ID with friends<br>
-                3. They enter the same Room ID to join<br>
-                4. Chat directly browser-to-browser!
+                1) Enter your username and room ID<br>
+                2) Click Join<br>
+                3) Use Invite/QR to share a link that others can open (even on a different device)
             </div>
 
             <form class="login-form" id="loginForm">
                 <input type="text" id="usernameInput" placeholder="Enter your username" required maxlength="20" autocomplete="off">
                 <input type="text" id="roomInput" placeholder="Room ID (e.g., 'mychat123')" required maxlength="50" autocomplete="off">
                 <button type="submit" id="joinButton">Join Chat</button>
+
+                <details class="advanced">
+                    <summary>Advanced (TURN / Fallback)</summary>
+                    <div class="adv-body">
+                        <div class="adv-field">
+                            <label for="turnUrlsInput">TURN URLs</label>
+                            <input id="turnUrlsInput" type="text" placeholder="e.g. turns:turn.example.com:5349, turn:turn.example.com:3478">
+                        </div>
+                        <div class="adv-field">
+                            <label for="turnUserInput">TURN Username</label>
+                            <input id="turnUserInput" type="text" placeholder="TURN username (optional)">
+                        </div>
+                        <div class="adv-field">
+                            <label for="turnPassInput">TURN Password</label>
+                            <input id="turnPassInput" type="password" placeholder="TURN password (optional)">
+                        </div>
+                        <label class="adv-check">
+                            <input type="checkbox" id="fallbackPeerServer" checked>
+                            Use public PeerJS fallback server (helps on some networks)
+                        </label>
+                        <div style="font-size:12px;color:#6b7280;margin-top:6px;">
+                            Note: TURN ensures connectivity behind strict NATs/firewalls. Use your own TURN for reliability.
+                        </div>
+                    </div>
+                </details>
+
                 <div class="share-row">
-                    <button type="button" id="copyLinkBtn">Copy room link</button>
-                    <button type="button" id="qrBtn">Open QR</button>
+                    <button type="button" id="copyRoomLinkBtn">Copy room link</button>
+                    <button type="button" id="openRoomQRBtn">Open room QR</button>
                     <button type="button" class="secondary" id="clearRoomBtn">Clear Room Data</button>
                 </div>
             </form>
@@ -195,7 +240,7 @@
 
     <div class="connection-status" id="connectionStatus">Disconnected</div>
 
-    <!-- QR code library (small, CDN) -->
+    <!-- QR code library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-M6rZt+7b0JQb2VtZyqwpTrXKfXrmwE3G0Xb3r3rQO5k+eX5TzH1Cz4ZqgZV+v3Hn37Y5PwzpqjE4bXc+nyx0wA==" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script>
@@ -207,9 +252,11 @@
         let myPeerId = '';
         let isDisconnected = false;
         let peerDiscoveryInterval = null;
-        let activeSessionId = 0; // session fence for reconnects
+        let activeSessionId = 0; // session fence
+        let pendingInviter = ''; // inviter peerId from deep link
+        let presenceInterval = null;
 
-        // DOM elements
+        // DOM
         const loginScreen = document.getElementById('loginScreen');
         const chatContainer = document.getElementById('chatContainer');
         const loginForm = document.getElementById('loginForm');
@@ -226,23 +273,30 @@
         const disconnectBtn = document.getElementById('disconnectBtn');
         const imageInput = document.getElementById('imageInput');
         const imageButton = document.getElementById('imageButton');
-        const copyLinkBtn = document.getElementById('copyLinkBtn');
-        const qrBtn = document.getElementById('qrBtn');
+        const copyRoomLinkBtn = document.getElementById('copyRoomLinkBtn');
+        const openRoomQRBtn = document.getElementById('openRoomQRBtn');
         const clearRoomBtn = document.getElementById('clearRoomBtn');
         const diagBox = document.getElementById('diagBox');
+        const inviteBtn = document.getElementById('inviteBtn');
+        const inviteQRBtn = document.getElementById('inviteQRBtn');
+
+        // Advanced TURN/fallback
+        const turnUrlsInput = document.getElementById('turnUrlsInput');
+        const turnUserInput = document.getElementById('turnUserInput');
+        const turnPassInput = document.getElementById('turnPassInput');
+        const fallbackPeerServer = document.getElementById('fallbackPeerServer');
 
         let typingTimer;
         let isTyping = false;
 
         // History + Peer registry helpers
         const MAX_HISTORY = 200;
-        const MAX_EMBED_IMAGE_DATAURL = 150 * 1024; // 150KB to store small previews in history
+        const MAX_EMBED_IMAGE_DATAURL = 150 * 1024; // 150KB preview
         const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB send limit
         const historyKey = (rid) => `p2p_history:${rid}`;
         const peersKey = (rid) => `p2p_peers:${rid}`;
         const ROOM_ENTRY_TTL_MS = 5 * 60 * 1000;   // 5 minutes TTL
         const HEARTBEAT_MS = 30 * 1000;            // 30s heartbeat
-        let presenceInterval = null;
 
         function humanSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
@@ -272,16 +326,34 @@
         function hideDiag() { diagBox.style.display = 'none'; }
 
         // Deep link helpers
-        function readRoomFromURL() {
+        function readQueryParam(name) {
             const sp = new URLSearchParams(location.search);
-            if (sp.get('room')) return sp.get('room');
+            return sp.get(name) || '';
+        }
+        function readRoomFromURL() {
+            const r = readQueryParam('room');
+            if (r) return r;
             const m = (location.hash || '').match(/room=([^&]+)/i);
+            return m ? decodeURIComponent(m[1]) : '';
+        }
+        function readInviterFromURL() {
+            const i = readQueryParam('inviter');
+            if (i) return i;
+            const m = (location.hash || '').match(/inviter=([^&]+)/i);
             return m ? decodeURIComponent(m[1]) : '';
         }
         function buildRoomLink(r) {
             const url = new URL(location.href);
             url.searchParams.set('room', r);
-            url.hash = ''; // prefer search param
+            url.searchParams.delete('inviter');
+            url.hash = '';
+            return url.toString();
+        }
+        function buildInviteLink(r, inviter) {
+            const url = new URL(location.href);
+            url.searchParams.set('room', r);
+            url.searchParams.set('inviter', inviter);
+            url.hash = '';
             return url.toString();
         }
         function setURLRoom(r) {
@@ -301,12 +373,28 @@
                 const selfEntry = { peerId: myPeerId, username, timestamp: now };
                 if (idx >= 0) pruned[idx] = selfEntry; else pruned.push(selfEntry);
                 localStorage.setItem(roomKey, JSON.stringify(pruned));
-            } catch (e) {
-                // visible if needed
-            }
+            } catch {}
         }
 
-        // Safely reset UI controls for a fresh session
+        // Build ICE servers from UI (TURN support)
+        function getIceServers() {
+            const arr = [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ];
+            const urls = (turnUrlsInput.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const u = turnUserInput.value || '';
+            const p = turnPassInput.value || '';
+            for (const url of urls) {
+                const entry = { urls: url };
+                if (u) entry.username = u;
+                if (p) entry.credential = p;
+                arr.push(entry);
+            }
+            return arr;
+        }
+
+        // UI resets
         function resetUIForNewSession() {
             isDisconnected = false;
             messageInput.disabled = false;
@@ -318,7 +406,7 @@
             disconnectBanner.style.opacity = '1';
         }
 
-        // Initialize PeerJS with fallback and visible diagnostics (no dev console available)
+        // Initialize PeerJS with fallback and diagnostics
         function initPeer() {
             // hard reset
             try { if (peer && !peer.destroyed) peer.destroy(); } catch {}
@@ -327,16 +415,10 @@
             if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; }
             if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
 
-            const optionsList = [
-                { debug: 2, config: { 'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
-                ]}},
-                { host: '0.peerjs.com', port: 443, path: '/', secure: true, debug: 2, config: { 'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
-                ]}}
-            ];
+            const base = { debug: 2, config: { iceServers: getIceServers() } };
+            const list = fallbackPeerServer.checked
+                ? [ base, { ...base, host: '0.peerjs.com', port: 443, path: '/', secure: true } ]
+                : [ base ];
 
             let attempt = 0;
 
@@ -344,7 +426,7 @@
                 const tryNext = () => {
                     hideDiag();
                     if (peer && !peer.destroyed) { try { peer.destroy(); } catch {} }
-                    peer = new Peer(optionsList[attempt]);
+                    peer = new Peer(list[attempt]);
 
                     let settled = false;
                     peer.on('open', (id) => {
@@ -355,17 +437,16 @@
                         resolve(id);
                     });
                     peer.on('error', (error) => {
-                        const msg = `Connection error${attempt ? ' (fallback tried)' : ''}. Try again, or switch networks.`;
-                        showDiag(`${msg}`, 'error');
-                        if (!settled && attempt + 1 < optionsList.length) {
+                        const msg = `Connection error${attempt ? ' (fallback tried)' : ''}. Check network or add TURN.`;
+                        showDiag(msg, 'error');
+                        if (!settled && attempt + 1 < list.length) {
                             attempt++;
-                            setTimeout(tryNext, 300);
+                            setTimeout(tryNext, 250);
                         } else {
                             settled = true;
                             reject(error);
                         }
                     });
-                    // incoming connections
                     peer.on('connection', (conn) => { setupConnection(conn); });
                 };
                 tryNext();
@@ -383,9 +464,8 @@
 
             conn.on('open', () => {
                 if (sessionId !== activeSessionId) { try { conn.close(); } catch {} return; }
-                // Send introduction
-                safeSend(conn, { type: 'intro', username, peerId: myPeerId });
-                // Request history once
+                // Send introduction with room check
+                safeSend(conn, { type: 'intro', username, peerId: myPeerId, room: roomId });
                 if (!historyRequestedOnce) {
                     historyRequestedOnce = true;
                     safeSend(conn, { type: 'history_request' });
@@ -407,21 +487,27 @@
 
             conn.on('error', () => {
                 if (sessionId !== activeSessionId) return;
-                // Show a small inline note; keep going
-                showDiag('A peer connection encountered an error. It may retry automatically.', 'warn');
+                showDiag('A peer connection had an error. It may retry automatically.', 'warn');
             });
         }
 
         // Handle incoming data
         function handleIncomingData(data, conn) {
             switch (data.type) {
-                case 'intro':
+                case 'intro': {
+                    if (data.room && data.room !== roomId) {
+                        // Reject peers not in this room
+                        safeSend(conn, { type: 'wrong_room', expected: roomId });
+                        try { conn.close(); } catch {}
+                        return;
+                    }
                     conn.metadata = { username: data.username, peerId: data.peerId };
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
-                    safeSend(conn, { type: 'intro', username, peerId: myPeerId });
+                    safeSend(conn, { type: 'intro', username, peerId: myPeerId, room: roomId });
                     broadcast({ type: 'peer_info', peerId: data.peerId, username: data.username });
                     break;
+                }
 
                 case 'message': {
                     const msgObj = { type: 'message', username: data.username, message: data.message, timestamp: data.timestamp || new Date().toISOString() };
@@ -506,15 +592,14 @@
 
         // Connect to a peer
         function connectToPeer(peerId) {
+            if (!peer || peer.destroyed) return;
             if (peerId === myPeerId || connections[peerId]) return;
             const conn = peer.connect(peerId, { reliable: true });
             setupConnection(conn);
         }
 
         // Broadcast message to all connections
-        function broadcast(data) {
-            Object.values(connections).forEach(conn => { if (conn.open) { safeSend(conn, data); } });
-        }
+        function broadcast(data) { Object.values(connections).forEach(conn => { if (conn.open) { safeSend(conn, data); } }); }
         function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
 
         // Join room
@@ -527,24 +612,22 @@
             historyRequestedOnce = false; historyReceivedOnce = false;
             resetUIForNewSession(); hideDiag();
 
-            // For simplicity, use localStorage to share peer IDs for discovery
+            // Presence, prune, heartbeat (local discovery – helps in same-browser sessions)
             const roomKey = `webpychat_room_${roomId}`;
-            // Initialize presence, prune, and heartbeat
             updateRoomPresence(roomKey);
             if (presenceInterval) clearInterval(presenceInterval);
             presenceInterval = setInterval(() => updateRoomPresence(roomKey), HEARTBEAT_MS);
 
-            // Read peers (after prune) and add ourselves
-            let roomPeers = [];
+            // Connect to any seen peers locally (if same device/session)
             try {
                 const stored = localStorage.getItem(roomKey);
-                if (stored) roomPeers = JSON.parse(stored);
+                if (stored) {
+                    const roomPeers = JSON.parse(stored);
+                    roomPeers.forEach(peerInfo => { if (peerInfo.peerId !== myPeerId) connectToPeer(peerInfo.peerId); });
+                }
             } catch {}
 
-            // Connect to existing peers
-            roomPeers.forEach(peerInfo => { if (peerInfo.peerId !== myPeerId) connectToPeer(peerInfo.peerId); });
-
-            // Periodically check for new peers + prune
+            // Poll for new peers via local discovery
             if (peerDiscoveryInterval) clearInterval(peerDiscoveryInterval);
             peerDiscoveryInterval = setInterval(() => {
                 if (sessionId !== activeSessionId) return;
@@ -559,6 +642,11 @@
                     }
                 } catch {}
             }, 5000);
+
+            // If we have an inviter from deep link, connect to them to bootstrap cross-device mesh
+            if (pendingInviter && pendingInviter !== myPeerId) {
+                connectToPeer(pendingInviter);
+            }
         }
 
         // Render local history after UI is shown
@@ -594,15 +682,17 @@
                 loginScreen.style.display = 'none';
                 chatContainer.classList.add('active');
                 disconnectBanner.style.display = 'flex';
+                inviteBtn.style.display = 'inline-block';
+                inviteQRBtn.style.display = 'inline-block';
                 resetUIForNewSession();
                 messageInput.focus();
 
                 updateUserCount();
                 renderHistoryOnLoad();
                 addSystemMessage(`Welcome to room: ${room}`);
-                addSystemMessage('Share this room ID with others to chat!');
+                addSystemMessage('Use Invite to share a link with your peer ID for cross-device joining.');
             } catch (error) {
-                showDiag('Connection error. If you are on a restrictive network, try another connection or VPN. You can also tap Clear Room Data then retry.', 'error');
+                showDiag('Connection error. Add TURN (Advanced), try another network, or Clear Room Data then retry.', 'error');
                 joinButton.disabled = false;
                 joinButton.textContent = 'Join Chat';
             }
@@ -681,10 +771,8 @@
             setTimeout(() => connectionStatus.classList.remove('show'), 3000);
         }
 
-        // Broadcast helper used by cleanup
         function broadcastToAll(data) { Object.values(connections).forEach(c => { if (c.open) safeSend(c, data); }); }
 
-        // Cleanup and disconnect
         function cleanupAndDisconnect() {
             try { broadcastToAll({ type: 'user_left', peerId: myPeerId, username }); } catch {}
             try { Object.values(connections).forEach(c => { try { c.close(); } catch {} }); } catch {}
@@ -706,7 +794,6 @@
             try { connections = {}; } catch {}
         }
 
-        // Manual disconnect button handler
         disconnectBtn.addEventListener('click', () => {
             if (isDisconnected) return;
             disconnectBtn.disabled = true; imageButton.disabled = true;
@@ -719,27 +806,22 @@
                 showConnectionStatus('Disconnected', false);
                 disconnectBtn.textContent = 'Disconnected';
 
-                // Return to login to allow a new connection immediately
                 chatContainer.classList.remove('active');
                 loginScreen.style.display = 'flex';
                 disconnectBanner.style.display = 'none';
                 joinButton.disabled = false;
                 joinButton.textContent = 'Join Chat';
-            } catch (err) {
+            } catch {
                 disconnectBtn.disabled = false; imageButton.disabled = false; disconnectBtn.textContent = original;
                 alert('Failed to disconnect. Please try again.');
             }
         });
 
-        // Warn users if they try to close/reload while still connected
         window.addEventListener('beforeunload', (e) => {
             if (chatContainer.classList.contains('active') && !isDisconnected) {
-                e.preventDefault();
-                e.returnValue = '';
+                e.preventDefault(); e.returnValue = '';
             }
         });
-
-        // Ensure cleanup when actually leaving the page
         window.addEventListener('pagehide', () => { cleanupAndDisconnect(); });
 
         // Image sending helpers
@@ -769,7 +851,6 @@
             broadcast(payload);
             scrollToBottom();
         }
-
         function fileToDataURL(file) {
             return new Promise((resolve, reject) => {
                 const r = new FileReader();
@@ -779,57 +860,22 @@
             });
         }
 
-        // Paste image
-        document.addEventListener('paste', async (e) => {
-            if (!chatContainer.classList.contains('active') || isDisconnected) return;
-            const items = e.clipboardData && e.clipboardData.items;
-            if (!items) return;
-            for (const item of items) {
-                if (item.type && item.type.startsWith('image/')) {
-                    const blob = item.getAsFile();
-                    if (blob) {
-                        const file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
-                        await handleImageFile(file);
-                        e.preventDefault();
-                        return;
-                    }
-                }
-            }
-        });
-
-        // Drag-and-drop image
-        ;['dragenter','dragover','dragleave','drop'].forEach(ev =>
-            chatContainer.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); })
-        );
-        chatContainer.addEventListener('drop', async (e) => {
-            if (!chatContainer.classList.contains('active') || isDisconnected) return;
-            const files = e.dataTransfer && e.dataTransfer.files;
-            if (!files || !files.length) return;
-            for (const f of files) {
-                if (f.type && f.type.startsWith('image/')) { await handleImageFile(f); break; }
-            }
-        });
-
-        // Deep link: preload room, and share helpers
+        // Deep link: prefill room and inviter; room-only share pre-join; invite w/ peerId post-join
         (function initDeepLinking() {
             const prefillRoom = readRoomFromURL();
             if (prefillRoom) roomInput.value = prefillRoom;
+            pendingInviter = readInviterFromURL() || '';
 
-            copyLinkBtn.addEventListener('click', async () => {
+            copyRoomLinkBtn.addEventListener('click', async () => {
                 const r = roomInput.value.trim();
                 if (!r) { alert('Enter a Room ID first.'); return; }
                 const link = buildRoomLink(r);
-                try {
-                    await navigator.clipboard.writeText(link);
-                    showConnectionStatus('Room link copied', true);
-                } catch {
-                    alert(link);
-                }
+                try { await navigator.clipboard.writeText(link); showConnectionStatus('Room link copied', true); }
+                catch { alert(link); }
             });
 
-            // Simple QR modal
             let modal;
-            qrBtn.addEventListener('click', () => {
+            openRoomQRBtn.addEventListener('click', () => {
                 const r = roomInput.value.trim();
                 if (!r) { alert('Enter a Room ID first.'); return; }
                 const link = buildRoomLink(r);
@@ -839,7 +885,7 @@
                     modal.innerHTML = `
                         <div class="card">
                             <div class="row">
-                                <strong>Join via QR</strong>
+                                <strong>Room QR</strong>
                                 <button id="qrCloseBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">Close</button>
                             </div>
                             <div id="qrcode"></div>
@@ -850,17 +896,14 @@
                     modal.querySelector('#qrCloseBtn').addEventListener('click', () => { modal.style.display = 'none'; });
                 }
                 modal.style.display = 'flex';
-                const qrelem = modal.querySelector('#qrcode');
-                qrelem.innerHTML = '';
+                const qrelem = modal.querySelector('#qrcode'); qrelem.innerHTML = '';
                 if (window.QRCode) {
                     try { new QRCode(qrelem, { text: link, width: 256, height: 256 }); }
                     catch { qrelem.textContent = 'QR unavailable'; }
-                } else {
-                    qrelem.textContent = 'QR unavailable';
-                }
+                } else { qrelem.textContent = 'QR unavailable'; }
             });
 
-            // Clear room data (remove ghosts on this device)
+            // Clear room data (local) to remove ghosts on this device
             clearRoomBtn.addEventListener('click', () => {
                 const r = roomInput.value.trim();
                 if (!r) { alert('Enter a Room ID first.'); return; }
@@ -870,10 +913,53 @@
                     localStorage.removeItem(`p2p_peers:${r}`);
                     localStorage.removeItem(`p2p_history:${r}`);
                     showConnectionStatus('Room data cleared', true);
-                } catch (e) {
-                    alert('Failed to clear local room data.');
-                }
+                } catch { alert('Failed to clear local room data.'); }
             });
+        })();
+
+        // In-chat Invite (includes inviter peerId for cross-device bootstrap)
+        ;(function initInviteInChat() {
+            let modal;
+            function ensureModal() {
+                if (modal) return modal;
+                modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="card">
+                        <div class="row">
+                            <strong>Invite</strong>
+                            <button id="chatQrClose" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">Close</button>
+                        </div>
+                        <div id="inviteQR"></div>
+                        <div id="inviteLink" style="margin-top:8px;font-size:12px;color:#555;word-break:break-all;"></div>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button id="copyInvite" class="btn-small" style="color:#111;background:#e5e7eb;border-color:#d1d5db;">Copy</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+                modal.querySelector('#chatQrClose').addEventListener('click', () => { modal.style.display = 'none'; });
+                return modal;
+            }
+
+            inviteBtn.addEventListener('click', async () => {
+                if (!roomId || !myPeerId) { showConnectionStatus('Join first', false); return; }
+                const link = buildInviteLink(roomId, myPeerId);
+                const m = ensureModal();
+                m.style.display = 'flex';
+                const qrelem = m.querySelector('#inviteQR'); qrelem.innerHTML = '';
+                m.querySelector('#inviteLink').textContent = link;
+                if (window.QRCode) {
+                    try { new QRCode(qrelem, { text: link, width: 256, height: 256 }); }
+                    catch { qrelem.textContent = 'QR unavailable'; }
+                } else { qrelem.textContent = 'QR unavailable'; }
+                m.querySelector('#copyInvite').onclick = async () => {
+                    try { await navigator.clipboard.writeText(link); showConnectionStatus('Invite link copied', true); }
+                    catch { alert(link); }
+                };
+            });
+
+            inviteQRBtn.addEventListener('click', () => inviteBtn.click());
         })();
     </script>
 </body>
