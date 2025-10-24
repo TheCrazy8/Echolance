@@ -9,12 +9,11 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif';
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            /* allow page to scroll if needed */
             align-items: flex-start;
             padding: 20px;
         }
@@ -22,15 +21,13 @@
         .container {
             width: 100%;
             max-width: 900px;
-            /* height for modern and older mobile browsers */
-            height: 100dvh;
             height: 90vh;
+            height: 100dvh;
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             display: flex;
             flex-direction: column;
-            /* allow the whole app to scroll if content exceeds height */
             overflow: auto;
         }
 
@@ -61,7 +58,6 @@
         .login-screen {
             flex: 1; display: flex; flex-direction: column;
             justify-content: center; align-items: center; padding: 20px 24px 32px;
-            /* make login content scrollable on small screens */
             overflow-y: auto; width: 100%;
         }
 
@@ -103,10 +99,7 @@
         .chat-container { flex: 1; display: none; flex-direction: column; min-height: 0; }
         .chat-container.active { display: flex; }
 
-        .messages {
-            flex: 1; overflow-y: auto; padding: 20px; background: #f5f5f5; min-height: 0;
-            scroll-behavior: smooth;
-        }
+        .messages { flex: 1; overflow-y: auto; padding: 20px; background: #f5f5f5; min-height: 0; scroll-behavior: smooth; }
 
         .message { margin-bottom: 15px; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -124,17 +117,11 @@
         .input-form { display: flex; gap: 10px; flex-wrap: wrap; }
         .input-form input[type="text"] { flex: 1; min-width: 200px; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; min-width: 0; }
         .input-form input[type="text"]:focus { outline: none; border-color: #667eea; }
-        .input-form button {
-            padding: 12px 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: transform 0.2s; white-space: nowrap;
-        }
+        .input-form button { padding: 12px 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: transform 0.2s; white-space: nowrap; }
         .input-form button:hover { transform: translateY(-2px); }
         .input-form button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .connection-status {
-            position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #f44336; color: white;
-            border-radius: 8px; display: none; animation: slideIn 0.3s ease; z-index: 1000;
-        }
+        .connection-status { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #f44336; color: white; border-radius: 8px; display: none; animation: slideIn 0.3s ease; z-index: 1000; }
         .connection-status.show { display: block; }
         .connection-status.connected { background: #4caf50; }
 
@@ -150,9 +137,7 @@
             position: sticky; top: 0; z-index: 1000;
         }
         .disconnect-banner strong { font-weight: 600; }
-        .disconnect-banner button {
-            margin-left: auto; background: #b42318; color: white; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer;
-        }
+        .disconnect-banner button { margin-left: auto; background: #b42318; color: white; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
         .disconnect-banner button[disabled] { opacity: 0.6; cursor: not-allowed; }
 
         /* QR modal */
@@ -641,7 +626,7 @@
                 if (!conn.open) {
                     try { conn.close(); } catch {}
                     try {
-                        const roomKey = `webpychat_room_${roomId}`);
+                        const roomKey = `webpychat_room_${roomId}`;
                         const stored = localStorage.getItem(roomKey);
                         if (stored) {
                             const arr = JSON.parse(stored).filter(p => p.peerId !== peerId);
@@ -661,6 +646,15 @@
         // Broadcast message to all connections
         function broadcast(data) { Object.values(connections).forEach(conn => { if (conn.open) { safeSend(conn, data); } }); }
         function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
+
+        // Simple system message renderer
+        function addSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message system';
+            div.textContent = text;
+            messages.appendChild(div);
+            scrollToBottom();
+        }
 
         // Remember last peer for crash recovery
         function rememberLastPeer() {
