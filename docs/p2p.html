@@ -163,6 +163,26 @@
             word-wrap: break-word;
         }
 
+        .message.user .image-content {
+            display: inline-block;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .message.user .image-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            display: block;
+        }
+        .message.user .image-caption {
+            font-size: 12px;
+            color: #555;
+            margin-top: 6px;
+            word-break: break-all;
+        }
+
         .typing-indicator {
             padding: 10px 20px;
             color: #666;
@@ -182,7 +202,7 @@
             gap: 10px;
         }
 
-        .input-form input {
+        .input-form input[type="text"] {
             flex: 1;
             padding: 12px 15px;
             border: 2px solid #ddd;
@@ -191,24 +211,31 @@
             transition: border-color 0.3s;
         }
 
-        .input-form input:focus {
+        .input-form input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
         }
 
         .input-form button {
-            padding: 12px 30px;
+            padding: 12px 18px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             transition: transform 0.2s;
+            white-space: nowrap;
         }
 
         .input-form button:hover {
             transform: translateY(-2px);
+        }
+
+        .input-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .connection-status {
@@ -322,7 +349,9 @@
             <div class="input-area">
                 <form class="input-form" id="messageForm">
                     <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
+                    <button id="imageButton" type="button" title="Send image">Image</button>
                     <button type="submit">Send</button>
+                    <input type="file" id="imageInput" accept="image/*" hidden>
                 </form>
             </div>
         </div>
@@ -356,14 +385,25 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const disconnectBanner = document.getElementById('disconnectBanner');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const imageInput = document.getElementById('imageInput');
+        const imageButton = document.getElementById('imageButton');
 
         let typingTimer;
         let isTyping = false;
 
         // History + Peer registry helpers
         const MAX_HISTORY = 200;
+        const MAX_EMBED_IMAGE_DATAURL = 150 * 1024; // 150KB max to store in localStorage history
+        const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB send limit per image
         const historyKey = (rid) => `p2p_history:${rid}`;
         const peersKey = (rid) => `p2p_peers:${rid}`;
+
+        function humanSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            const sizes = ['B','KB','MB','GB','TB'];
+            return (bytes / Math.pow(1024, i)).toFixed(i ? 1 : 0) + ' ' + sizes[i];
+        }
 
         function loadHistory(rid) {
             try { return JSON.parse(localStorage.getItem(historyKey(rid)) || '[]'); } catch { return []; }
@@ -401,6 +441,7 @@
             messageInput.disabled = false;
             const sendBtn = messageForm.querySelector('button[type="submit"]');
             if (sendBtn) sendBtn.disabled = false;
+            imageButton.disabled = false;
             disconnectBtn.disabled = false;
             disconnectBtn.textContent = 'Disconnect';
             disconnectBanner.style.opacity = '1';
@@ -480,7 +521,7 @@
         function handleIncomingData(data, conn) {
             switch (data.type) {
                 case 'intro':
-                    // Fix: store the sender's peerId, not our own
+                    // Store sender's info
                     conn.metadata = { username: data.username, peerId: data.peerId };
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
@@ -499,6 +540,34 @@
                     };
                     addMessage(msgObj.username, msgObj.message, msgObj.timestamp);
                     addToHistory(roomId, msgObj);
+                    break;
+                }
+
+                case 'image': {
+                    try {
+                        const arrayBuffer = data.data;
+                        const mime = data.mime || 'application/octet-stream';
+                        const blob = new Blob([arrayBuffer], { type: mime });
+                        const url = URL.createObjectURL(blob);
+                        const ts = data.timestamp || new Date().toISOString();
+                        addImageMessage(data.username, url, data.filename || 'image', data.size || blob.size, ts);
+                        // Persist a tiny inline preview if provided
+                        const historyEntry = {
+                            type: 'image',
+                            username: data.username,
+                            filename: data.filename || 'image',
+                            size: data.size || blob.size,
+                            mime: mime,
+                            timestamp: ts
+                        };
+                        // Optionally store tiny dataURL if present (sender may have omitted)
+                        if (data.dataUrl && data.dataUrl.length <= MAX_EMBED_IMAGE_DATAURL * 1.4) {
+                            historyEntry.dataUrl = data.dataUrl;
+                        }
+                        addToHistory(roomId, historyEntry);
+                    } catch (e) {
+                        console.error('Failed to render incoming image:', e);
+                    }
                     break;
                 }
 
@@ -527,13 +596,24 @@
                         const seen = new Set();
                         const merged = [];
                         for (const m of all) {
-                            const k = `${m.timestamp}|${m.username}|${m.message}`;
+                            const k = `${m.timestamp}|${m.username}|${m.type || 'message'}|${m.message || m.filename || ''}`;
                             if (!seen.has(k)) { seen.add(k); merged.push(m); }
                         }
                         merged.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
                         saveHistory(roomId, merged);
+                        // re-render merged
                         clearMessages();
-                        for (const m of merged) addMessage(m.username, m.message, m.timestamp, false);
+                        for (const m of merged) {
+                            if (m.type === 'image') {
+                                if (m.dataUrl) {
+                                    addImageMessage(m.username, m.dataUrl, m.filename || 'image', m.size || 0, m.timestamp, true);
+                                } else {
+                                    addSystemMessage(`${m.username} sent an image: ${m.filename || 'image'} (${humanSize(m.size || 0)}) [preview unavailable]`);
+                                }
+                            } else {
+                                addMessage(m.username, m.message, m.timestamp, false);
+                            }
+                        }
                         scrollToBottom();
                     }
                     break;
@@ -568,7 +648,9 @@
         // Broadcast message to all connections
         function broadcast(data) {
             Object.values(connections).forEach(conn => {
-                if (conn.open) safeSend(conn, data);
+                if (conn.open) {
+                    safeSend(conn, data);
+                }
             });
         }
         function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
@@ -642,7 +724,17 @@
         function renderHistoryOnLoad() {
             const hist = loadHistory(roomId);
             if (hist.length) {
-                hist.forEach(m => addMessage(m.username, m.message, m.timestamp, false));
+                hist.forEach(m => {
+                    if (m.type === 'image') {
+                        if (m.dataUrl) {
+                            addImageMessage(m.username, m.dataUrl, m.filename || 'image', m.size || 0, m.timestamp, true);
+                        } else {
+                            addSystemMessage(`${m.username} sent an image: ${m.filename || 'image'} (${humanSize(m.size || 0)}) [preview unavailable]`);
+                        }
+                    } else {
+                        addMessage(m.username, m.message, m.timestamp, false);
+                    }
+                });
                 scrollToBottom();
             }
         }
@@ -750,12 +842,39 @@
             if (scroll) messages.scrollTop = messages.scrollHeight;
         }
 
-        function addSystemMessage(message) {
+        function addImageMessage(sender, srcUrl, filename, size, timestamp = null, scroll = true) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = 'message system';
-            messageDiv.textContent = message;
+            messageDiv.className = 'message user';
+
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = sender + (timestamp ? ` • ${new Date(timestamp).toLocaleTimeString()}` : '');
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'image-content';
+
+            const link = document.createElement('a');
+            link.href = srcUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+
+            const img = document.createElement('img');
+            img.alt = filename ? `Image: ${filename}` : 'Image';
+            img.src = srcUrl;
+
+            link.appendChild(img);
+            wrapper.appendChild(link);
+
+            const caption = document.createElement('div');
+            caption.className = 'image-caption';
+            caption.textContent = `${filename || 'image'} ${size ? `(${humanSize(size)})` : ''}`;
+            wrapper.appendChild(caption);
+
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(wrapper);
             messages.appendChild(messageDiv);
-            messages.scrollTop = messages.scrollHeight;
+
+            if (scroll) messages.scrollTop = messages.scrollHeight;
         }
 
         function updateUserCount() {
@@ -800,6 +919,7 @@
         disconnectBtn.addEventListener('click', () => {
             if (isDisconnected) return;
             disconnectBtn.disabled = true;
+            imageButton.disabled = true;
             const original = disconnectBtn.textContent;
             disconnectBtn.textContent = 'Disconnecting…';
             try {
@@ -818,6 +938,7 @@
             } catch (err) {
                 console.error('Disconnect failed:', err);
                 disconnectBtn.disabled = false;
+                imageButton.disabled = false;
                 disconnectBtn.textContent = original;
                 alert('Failed to disconnect. Please try again.');
             }
@@ -834,7 +955,114 @@
         // Ensure cleanup when actually leaving the page
         window.addEventListener('pagehide', () => { cleanupAndDisconnect(); });
 
-        // Note: Removed visibilitychange-based cleanup to avoid accidental disconnects when the tab is backgrounded
+        // Image sending helpers
+        imageButton.addEventListener('click', () => {
+            if (isDisconnected) return;
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                await handleImageFile(file);
+            }
+            imageInput.value = '';
+        });
+
+        async function handleImageFile(file) {
+            if (!file.type || !file.type.startsWith('image/')) {
+                alert('Please select an image file.');
+                return;
+            }
+            if (file.size > MAX_IMAGE_BYTES) {
+                alert(`Image too large. Max allowed is ${humanSize(MAX_IMAGE_BYTES)}.`);
+                return;
+            }
+            // Show locally
+            const localUrl = URL.createObjectURL(file);
+            const ts = new Date().toISOString();
+            addImageMessage(username, localUrl, file.name || 'image', file.size, ts);
+            // Store tiny preview in history if small enough
+            let dataUrlForHistory = '';
+            try {
+                if (file.size <= MAX_EMBED_IMAGE_DATAURL) {
+                    dataUrlForHistory = await fileToDataURL(file);
+                }
+            } catch {}
+            const historyEntry = {
+                type: 'image',
+                username,
+                filename: file.name || 'image',
+                size: file.size,
+                mime: file.type,
+                timestamp: ts
+            };
+            if (dataUrlForHistory) historyEntry.dataUrl = dataUrlForHistory;
+            addToHistory(roomId, historyEntry);
+
+            // Send to peers as binary
+            const buf = await file.arrayBuffer();
+            const payload = {
+                type: 'image',
+                username,
+                filename: file.name || 'image',
+                mime: file.type || 'application/octet-stream',
+                size: file.size,
+                timestamp: ts,
+                data: buf
+            };
+            // Also include tiny dataURL for receivers to optionally persist
+            if (dataUrlForHistory) payload.dataUrl = dataUrlForHistory;
+            broadcast(payload);
+            scrollToBottom();
+        }
+
+        function fileToDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+
+        // Paste-to-send support
+        document.addEventListener('paste', async (e) => {
+            if (!chatContainer.classList.contains('active') || isDisconnected) return;
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type && item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    if (blob) {
+                        // give it a default name
+                        const file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
+                        await handleImageFile(file);
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            }
+        });
+
+        // Drag-and-drop support
+        ;['dragenter','dragover','dragleave','drop'].forEach(ev =>
+            chatContainer.addEventListener(ev, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            })
+        );
+        chatContainer.addEventListener('drop', async (e) => {
+            if (!chatContainer.classList.contains('active') || isDisconnected) return;
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (!files || !files.length) return;
+            for (const f of files) {
+                if (f.type && f.type.startsWith('image/')) {
+                    await handleImageFile(f);
+                    break; // only first image
+                }
+            }
+        });
     </script>
 </body>
 </html>
