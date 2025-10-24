@@ -334,6 +334,41 @@
         let typingTimer;
         let isTyping = false;
 
+        // New: History + Peer registry helpers
+        const MAX_HISTORY = 200;
+        const historyKey = (rid) => `p2p_history:${rid}`;
+        const peersKey = (rid) => `p2p_peers:${rid}`;
+
+        function loadHistory(rid) {
+            try { return JSON.parse(localStorage.getItem(historyKey(rid)) || '[]'); } catch { return []; }
+        }
+        function saveHistory(rid, list) {
+            localStorage.setItem(historyKey(rid), JSON.stringify(list.slice(-MAX_HISTORY)));
+        }
+        function addToHistory(rid, msg) {
+            const list = loadHistory(rid);
+            list.push(msg);
+            saveHistory(rid, list);
+        }
+
+        function getRoomPeers(rid) {
+            try { return JSON.parse(localStorage.getItem(peersKey(rid)) || '[]'); } catch { return []; }
+        }
+        function setRoomPeers(rid, arr) {
+            localStorage.setItem(peersKey(rid), JSON.stringify([...new Set(arr)]));
+        }
+        function addPeerToRoom(rid, pid) {
+            const l = getRoomPeers(rid);
+            if (!l.includes(pid)) { l.push(pid); setRoomPeers(rid, l); }
+        }
+        function removePeerFromRoom(rid, pid) {
+            const l = getRoomPeers(rid).filter(x => x !== pid);
+            setRoomPeers(rid, l);
+        }
+
+        function clearMessages() { messages.innerHTML = ''; }
+        function scrollToBottom() { messages.scrollTop = messages.scrollHeight; }
+
         // Initialize PeerJS
         function initPeer() {
             return new Promise((resolve, reject) => {
@@ -368,6 +403,10 @@
             });
         }
 
+        // History sync flags
+        let historyRequestedOnce = false;
+        let historyReceivedOnce = false;
+
         // Setup connection handlers
         function setupConnection(conn) {
             connections[conn.peer] = conn;
@@ -375,11 +414,12 @@
             conn.on('open', () => {
                 console.log('Connection established with:', conn.peer);
                 // Send introduction
-                conn.send({
-                    type: 'intro',
-                    username: username,
-                    peerId: myPeerId
-                });
+                safeSend(conn, { type: 'intro', username, peerId: myPeerId });
+                // On first connection, request history once
+                if (!historyRequestedOnce) {
+                    historyRequestedOnce = true;
+                    safeSend(conn, { type: 'history_request' });
+                }
             });
 
             conn.on('data', (data) => {
@@ -388,12 +428,10 @@
 
             conn.on('close', () => {
                 console.log('Connection closed:', conn.peer);
-                if (connections[conn.peer]) {
-                    const peerUsername = connections[conn.peer].metadata?.username || 'Unknown';
-                    delete connections[conn.peer];
-                    addSystemMessage(`${peerUsername} left the chat`);
-                    updateUserCount();
-                }
+                const peerUsername = connections[conn.peer]?.metadata?.username || 'User';
+                delete connections[conn.peer];
+                addSystemMessage(`${peerUsername} left the chat`);
+                updateUserCount();
             });
 
             conn.on('error', (error) => {
@@ -409,18 +447,22 @@
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
                     // Send back our intro
-                    conn.send({
-                        type: 'intro',
-                        username: username,
-                        peerId: myPeerId
-                    });
+                    safeSend(conn, { type: 'intro', username, peerId: myPeerId });
                     // Broadcast to others
-                    broadcastPeerInfo(data.peerId, data.username);
+                    broadcast({ type: 'peer_info', peerId: data.peerId, username: data.username });
                     break;
 
-                case 'message':
-                    addMessage(data.username, data.message);
+                case 'message': {
+                    const msgObj = {
+                        type: 'message',
+                        username: data.username,
+                        message: data.message,
+                        timestamp: data.timestamp || new Date().toISOString()
+                    };
+                    addMessage(msgObj.username, msgObj.message, msgObj.timestamp);
+                    addToHistory(roomId, msgObj);
                     break;
+                }
 
                 case 'typing':
                     handleTypingIndicator(data.username, data.typing);
@@ -432,6 +474,53 @@
                         connectToPeer(data.peerId);
                     }
                     break;
+
+                case 'history_request': {
+                    const hist = loadHistory(roomId);
+                    safeSend(conn, { type: 'history_response', messages: hist.slice(-MAX_HISTORY) });
+                    break;
+                }
+
+                case 'history_response': {
+                    if (!historyReceivedOnce) {
+                        historyReceivedOnce = true;
+                        const existing = loadHistory(roomId);
+                        const incoming = Array.isArray(data.messages) ? data.messages : [];
+                        const all = existing.concat(incoming);
+                        // de-dupe by timestamp|username|message
+                        const seen = new Set();
+                        const merged = [];
+                        for (const m of all) {
+                            const k = `${m.timestamp}|${m.username}|${m.message}`;
+                            if (!seen.has(k)) { seen.add(k); merged.push(m); }
+                        }
+                        merged.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+                        saveHistory(roomId, merged);
+                        // re-render merged history for consistency
+                        clearMessages();
+                        for (const m of merged) addMessage(m.username, m.message, m.timestamp, false);
+                        scrollToBottom();
+                    }
+                    break;
+                }
+
+                case 'user_left': {
+                    if (data.peerId) {
+                        removePeerFromRoom(roomId, data.peerId);
+                        // also clear from discovery roomKey list locally
+                        try {
+                            const roomKey = `webpychat_room_${roomId}`;
+                            const stored = localStorage.getItem(roomKey);
+                            if (stored) {
+                                const arr = JSON.parse(stored).filter(p => p.peerId !== data.peerId);
+                                localStorage.setItem(roomKey, JSON.stringify(arr));
+                            }
+                        } catch {}
+                        addSystemMessage(`${data.username || 'A user'} left the chat`);
+                        updateUserCount();
+                    }
+                    break;
+                }
             }
         }
 
@@ -440,40 +529,27 @@
             if (peerId === myPeerId || connections[peerId]) {
                 return;
             }
-
             console.log('Connecting to peer:', peerId);
-            const conn = peer.connect(peerId);
+            const conn = peer.connect(peerId, { reliable: true });
             setupConnection(conn);
-        }
-
-        // Broadcast peer info to all connections
-        function broadcastPeerInfo(peerId, peerUsername) {
-            broadcast({
-                type: 'peer_info',
-                peerId: peerId,
-                username: peerUsername
-            });
         }
 
         // Broadcast message to all connections
         function broadcast(data) {
             Object.values(connections).forEach(conn => {
                 if (conn.open) {
-                    conn.send(data);
+                    safeSend(conn, data);
                 }
             });
         }
+        function safeSend(conn, data) { try { conn.send(data); } catch (e) {} }
 
         // Join room
         async function joinRoom(room) {
             roomId = room;
-            // Create a deterministic peer ID based on room
-            // In a real room, we'd use a signaling server
-            // For simplicity, we'll use localStorage to share peer IDs
-            
+            // For simplicity, use localStorage to share peer IDs for discovery
             const roomKey = `webpychat_room_${roomId}`;
             let roomPeers = [];
-            
             try {
                 const stored = localStorage.getItem(roomKey);
                 if (stored) {
@@ -500,10 +576,13 @@
                 console.error('Error saving room data:', e);
             }
 
+            // Also track a simpler peer list for cleanup
+            addPeerToRoom(roomId, myPeerId);
+
             // Connect to existing peers
-            roomPeers.forEach(peer => {
-                if (peer.peerId !== myPeerId) {
-                    connectToPeer(peer.peerId);
+            roomPeers.forEach(peerInfo => {
+                if (peerInfo.peerId !== myPeerId) {
+                    connectToPeer(peerInfo.peerId);
                 }
             });
 
@@ -513,9 +592,9 @@
                     const stored = localStorage.getItem(roomKey);
                     if (stored) {
                         const currentPeers = JSON.parse(stored);
-                        currentPeers.forEach(peer => {
-                            if (peer.peerId !== myPeerId && !connections[peer.peerId]) {
-                                connectToPeer(peer.peerId);
+                        currentPeers.forEach(peerInfo => {
+                            if (peerInfo.peerId !== myPeerId && !connections[peerInfo.peerId]) {
+                                connectToPeer(peerInfo.peerId);
                             }
                         });
                     }
@@ -525,12 +604,20 @@
             }, 5000);
         }
 
+        // Render local history after UI is shown
+        function renderHistoryOnLoad() {
+            const hist = loadHistory(roomId);
+            if (hist.length) {
+                hist.forEach(m => addMessage(m.username, m.message, m.timestamp, false));
+                scrollToBottom();
+            }
+        }
+
         // Login form submission
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             username = usernameInput.value.trim();
             const room = roomInput.value.trim();
-            
             if (!username || !room) {
                 return;
             }
@@ -547,6 +634,7 @@
                 messageInput.focus();
                 
                 updateUserCount();
+                renderHistoryOnLoad();
                 addSystemMessage(`Welcome to room: ${room}`);
                 addSystemMessage('Share this room ID with others to chat!');
             } catch (error) {
@@ -562,14 +650,17 @@
             e.preventDefault();
             const message = messageInput.value.trim();
             if (message) {
-                // Add our own message
-                addMessage(username, message);
-                // Broadcast to peers
-                broadcast({
+                const payload = {
                     type: 'message',
                     username: username,
-                    message: message
-                });
+                    message: message,
+                    timestamp: new Date().toISOString()
+                };
+                // Add our own message
+                addMessage(username, message, payload.timestamp);
+                addToHistory(roomId, payload);
+                // Broadcast to peers
+                broadcast(payload);
                 messageInput.value = '';
                 sendTypingStatus(false);
             }
@@ -597,14 +688,14 @@
             });
         }
 
-        function handleTypingIndicator(username, typing) {
-            const existing = document.querySelector(`[data-typing-user="${username}"]`);
+        function handleTypingIndicator(user, typing) {
+            const existing = document.querySelector(`[data-typing-user="${user}"]`);
             
             if (typing) {
                 if (!existing) {
                     const span = document.createElement('span');
-                    span.setAttribute('data-typing-user', username);
-                    span.textContent = `${username} is typing...`;
+                    span.setAttribute('data-typing-user', user);
+                    span.textContent = `${user} is typing...`;
                     typingIndicator.appendChild(span);
                 }
             } else {
@@ -614,13 +705,13 @@
             }
         }
 
-        function addMessage(sender, message, scroll = true) {
+        function addMessage(sender, message, timestamp = null, scroll = true) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message user';
             
             const header = document.createElement('div');
             header.className = 'message-header';
-            header.textContent = sender;
+            header.textContent = sender + (timestamp ? ` • ${new Date(timestamp).toLocaleTimeString()}` : '');
             
             const content = document.createElement('div');
             content.className = 'message-content';
@@ -660,11 +751,44 @@
             }, 3000);
         }
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (peer) {
-                peer.destroy();
-            }
+        // Broadcast helper used by cleanup
+        function broadcastToAll(data) {
+            Object.values(connections).forEach(c => { if (c.open) safeSend(c, data); });
+        }
+
+        // Robust cleanup across browsers (desktop + mobile)
+        function cleanupAndDisconnect() {
+            try {
+                // Inform peers
+                broadcastToAll({ type: 'user_left', peerId: myPeerId, username });
+            } catch {}
+            try {
+                // Close peer data connections
+                Object.values(connections).forEach(c => { try { c.close(); } catch {} });
+            } catch {}
+            try {
+                // Destroy PeerJS instance
+                if (peer && !peer.destroyed) peer.destroy();
+            } catch {}
+            try {
+                // Remove from simple room peer list
+                if (myPeerId && roomId) removePeerFromRoom(roomId, myPeerId);
+                // Also remove from discovery list used in joinRoom
+                if (roomId && myPeerId) {
+                    const roomKey = `webpychat_room_${roomId}`;
+                    const stored = localStorage.getItem(roomKey);
+                    if (stored) {
+                        const arr = JSON.parse(stored).filter(p => p.peerId !== myPeerId);
+                        localStorage.setItem(roomKey, JSON.stringify(arr));
+                    }
+                }
+            } catch {}
+        }
+
+        window.addEventListener('beforeunload', cleanupAndDisconnect);
+        window.addEventListener('pagehide', cleanupAndDisconnect);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') cleanupAndDisconnect();
         });
     </script>
 </body>
