@@ -258,6 +258,36 @@
             font-family: 'Courier New', monospace;
         }
 
+        /* Disconnect banner */
+        .disconnect-banner {
+            display: none; /* shown after joining */
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #fff7e6;
+            color: #663c00;
+            border: 1px solid #ffdfa3;
+            border-radius: 0; /* flush edges inside container */
+            font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .disconnect-banner strong { font-weight: 600; }
+        .disconnect-banner button {
+            margin-left: auto;
+            background: #b42318;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        .disconnect-banner button[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 768px) {
             .container {
                 height: 100vh;
@@ -273,6 +303,12 @@
             <div class="user-count">
                 <span id="userCount">P2P Mode - No Server Required!</span>
             </div>
+        </div>
+
+        <!-- Disconnect reminder banner -->
+        <div class="disconnect-banner" id="disconnectBanner" role="status" aria-live="polite">
+            <span><strong>Reminder:</strong> Please disconnect before closing this tab to avoid leaving your session active.</span>
+            <button id="disconnectBtn" type="button">Disconnect</button>
         </div>
 
         <div class="login-screen" id="loginScreen">
@@ -316,6 +352,8 @@
         let username = '';
         let roomId = '';
         let myPeerId = '';
+        let isDisconnected = false;
+        let peerDiscoveryInterval = null;
 
         // DOM elements
         const loginScreen = document.getElementById('loginScreen');
@@ -330,6 +368,8 @@
         const userCount = document.getElementById('userCount');
         const typingIndicator = document.getElementById('typingIndicator');
         const connectionStatus = document.getElementById('connectionStatus');
+        const disconnectBanner = document.getElementById('disconnectBanner');
+        const disconnectBtn = document.getElementById('disconnectBtn');
 
         let typingTimer;
         let isTyping = false;
@@ -443,7 +483,7 @@
         function handleIncomingData(data, conn) {
             switch (data.type) {
                 case 'intro':
-                    conn.metadata = { username: data.username, peerId: data.peerId };
+                    conn.metadata = { username: data.username, peerId: myPeerId };
                     addSystemMessage(`${data.username} joined the chat`);
                     updateUserCount();
                     // Send back our intro
@@ -587,7 +627,7 @@
             });
 
             // Periodically check for new peers
-            setInterval(() => {
+            peerDiscoveryInterval = setInterval(() => {
                 try {
                     const stored = localStorage.getItem(roomKey);
                     if (stored) {
@@ -631,6 +671,7 @@
                 
                 loginScreen.style.display = 'none';
                 chatContainer.classList.add('active');
+                disconnectBanner.style.display = 'flex';
                 messageInput.focus();
                 
                 updateUserCount();
@@ -648,6 +689,7 @@
         // Message form submission
         messageForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (isDisconnected) return;
             const message = messageInput.value.trim();
             if (message) {
                 const payload = {
@@ -668,6 +710,7 @@
 
         // Typing indicator
         messageInput.addEventListener('input', () => {
+            if (isDisconnected) return;
             if (!isTyping) {
                 isTyping = true;
                 sendTypingStatus(true);
@@ -783,10 +826,49 @@
                     }
                 }
             } catch {}
+            try {
+                if (peerDiscoveryInterval) { clearInterval(peerDiscoveryInterval); peerDiscoveryInterval = null; }
+            } catch {}
+            try {
+                connections = {};
+            } catch {}
         }
 
-        window.addEventListener('beforeunload', cleanupAndDisconnect);
-        window.addEventListener('pagehide', cleanupAndDisconnect);
+        // Manual disconnect button handler
+        disconnectBtn.addEventListener('click', () => {
+            if (isDisconnected) return;
+            disconnectBtn.disabled = true;
+            const original = disconnectBtn.textContent;
+            disconnectBtn.textContent = 'Disconnecting…';
+            try {
+                cleanupAndDisconnect();
+                isDisconnected = true;
+                addSystemMessage('You disconnected from the room.');
+                showConnectionStatus('Disconnected', false);
+                disconnectBtn.textContent = 'Disconnected';
+                // Disable input after disconnect
+                messageInput.disabled = true;
+                const sendBtn = messageForm.querySelector('button[type="submit"]');
+                if (sendBtn) sendBtn.disabled = true;
+                // Dim banner slightly
+                disconnectBanner.style.opacity = '0.9';
+            } catch (err) {
+                console.error('Disconnect failed:', err);
+                disconnectBtn.disabled = false;
+                disconnectBtn.textContent = original;
+                alert('Failed to disconnect. Please try again.');
+            }
+        });
+
+        // Warn users if they try to close/reload while still connected
+        window.addEventListener('beforeunload', (e) => {
+            if (chatContainer.classList.contains('active') && !isDisconnected) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        // Ensure cleanup when actually leaving the page
+        window.addEventListener('pagehide', () => { cleanupAndDisconnect(); });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') cleanupAndDisconnect();
         });
