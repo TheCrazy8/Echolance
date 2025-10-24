@@ -14,20 +14,24 @@
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: center;
+            /* allow page to scroll if needed */
+            align-items: flex-start;
             padding: 20px;
         }
 
         .container {
             width: 100%;
             max-width: 900px;
+            /* height for modern and older mobile browsers */
+            height: 100dvh;
             height: 90vh;
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            /* allow the whole app to scroll if content exceeds height */
+            overflow: auto;
         }
 
         .header {
@@ -37,6 +41,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex: 0 0 auto;
         }
         .header h1 { font-size: 20px; }
         .header-right { display: flex; gap: 8px; align-items: center; }
@@ -56,6 +61,8 @@
         .login-screen {
             flex: 1; display: flex; flex-direction: column;
             justify-content: center; align-items: center; padding: 20px 24px 32px;
+            /* make login content scrollable on small screens */
+            overflow-y: auto; width: 100%;
         }
 
         .login-screen h2 { margin-bottom: 14px; color: #333; }
@@ -93,28 +100,29 @@
         .adv-field input[type="text"], .adv-field input[type="password"] { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; }
         .adv-check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
 
-        .chat-container { flex: 1; display: none; flex-direction: column; }
+        .chat-container { flex: 1; display: none; flex-direction: column; min-height: 0; }
         .chat-container.active { display: flex; }
 
-        .messages { flex: 1; overflow-y: auto; padding: 20px; background: #f5f5f5; }
+        .messages {
+            flex: 1; overflow-y: auto; padding: 20px; background: #f5f5f5; min-height: 0;
+            scroll-behavior: smooth;
+        }
 
         .message { margin-bottom: 15px; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .message.system { text-align: center; color: #666; font-size: 14px; font-style: italic; }
         .message.user .message-header { font-weight: bold; color: #667eea; margin-bottom: 5px; }
-        .message.user .message-content { background: white; padding: 10px 15px; border-radius: 8px; display: inline-block; max-width: 80%; word-wrap: break-word; }
+        .message.user .message-content { background: white; padding: 10px 15px; border-radius: 8px; display: inline-block; max-width: 80%; word-wrap: break-word; overflow-wrap: anywhere; }
         .message.user .image-content { display: inline-block; background: white; padding: 8px; border-radius: 8px; max-width: 80%; }
         .message.user .image-content img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
         .message.user .image-caption { font-size: 12px; color: #555; margin-top: 6px; word-break: break-all; }
 
         .typing-indicator { padding: 10px 20px; color: #666; font-size: 14px; font-style: italic; min-height: 40px; }
 
-        .input-area { padding: 20px; background: white; border-top: 1px solid #ddd; }
+        .input-area { padding: 20px; background: white; border-top: 1px solid #ddd; flex: 0 0 auto; }
         .input-form { display: flex; gap: 10px; flex-wrap: wrap; }
-        .input-form input[type="text"] {
-            flex: 1; min-width: 200px; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;
-        }
+        .input-form input[type="text"] { flex: 1; min-width: 200px; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; min-width: 0; }
         .input-form input[type="text"]:focus { outline: none; border-color: #667eea; }
         .input-form button {
             padding: 12px 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -153,7 +161,28 @@
         .modal .row { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         #qrcode { width: 256px; height: 256px; }
 
-        @media (max-width: 768px) { .container { height: 100vh; border-radius: 0; } }
+        /* Scroll-to-bottom button */
+        .scroll-bottom {
+            position: absolute;
+            right: 16px;
+            bottom: 96px; /* above input area */
+            z-index: 900;
+            display: none;
+            padding: 10px 12px;
+            border-radius: 999px;
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            color: #334155;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            cursor: pointer;
+        }
+        .scroll-bottom.show { display: inline-flex; align-items: center; gap: 6px; }
+
+        @media (max-width: 768px) {
+            .container { height: 100vh; height: 100dvh; border-radius: 0; }
+            .scroll-bottom { bottom: 110px; }
+        }
     </style>
 </head>
 <body>
@@ -227,6 +256,10 @@
 
         <div class="chat-container" id="chatContainer">
             <div class="messages" id="messages"></div>
+
+            <!-- Scroll-to-bottom button -->
+            <button id="scrollBottomBtn" class="scroll-bottom" type="button">⬇️ New messages</button>
+
             <div class="typing-indicator" id="typingIndicator"></div>
             <div class="input-area">
                 <form class="input-form" id="messageForm">
@@ -284,6 +317,7 @@
         const diagBox = document.getElementById('diagBox');
         const inviteBtn = document.getElementById('inviteBtn');
         const inviteQRBtn = document.getElementById('inviteQRBtn');
+        const scrollBottomBtn = document.getElementById('scrollBottomBtn');
 
         // Advanced TURN/fallback
         const turnUrlsInput = document.getElementById('turnUrlsInput');
@@ -321,6 +355,7 @@
 
         function clearMessages() { messages.innerHTML = ''; }
         function scrollToBottom() { messages.scrollTop = messages.scrollHeight; }
+        function isAtBottom() { return (messages.scrollHeight - messages.scrollTop - messages.clientHeight) < 8; }
 
         function showDiag(msg, level = 'warn') {
             diagBox.classList.remove('success','warn','error');
@@ -606,7 +641,7 @@
                 if (!conn.open) {
                     try { conn.close(); } catch {}
                     try {
-                        const roomKey = `webpychat_room_${roomId}`;
+                        const roomKey = `webpychat_room_${roomId}`);
                         const stored = localStorage.getItem(roomKey);
                         if (stored) {
                             const arr = JSON.parse(stored).filter(p => p.peerId !== peerId);
@@ -772,16 +807,19 @@
             } else if (existing) { existing.remove(); }
         }
 
+        // Auto-scroll only if user is at the bottom; otherwise show the button
         function addMessage(sender, message, timestamp = null, scroll = true) {
+            const stick = isAtBottom();
             const messageDiv = document.createElement('div'); messageDiv.className = 'message user';
             const header = document.createElement('div'); header.className = 'message-header';
             header.textContent = sender + (timestamp ? ` • ${new Date(timestamp).toLocaleTimeString()}` : '');
             const content = document.createElement('div'); content.className = 'message-content'; content.textContent = message;
             messageDiv.appendChild(header); messageDiv.appendChild(content); messages.appendChild(messageDiv);
-            if (scroll) messages.scrollTop = messages.scrollHeight;
+            if (stick && scroll) scrollToBottom(); else scrollBottomBtn.classList.add('show');
         }
 
         function addImageMessage(sender, srcUrl, filename, size, timestamp = null, scroll = true) {
+            const stick = isAtBottom();
             const messageDiv = document.createElement('div'); messageDiv.className = 'message user';
             const header = document.createElement('div'); header.className = 'message-header';
             header.textContent = sender + (timestamp ? ` • ${new Date(timestamp).toLocaleTimeString()}` : '');
@@ -793,7 +831,7 @@
             caption.textContent = `${filename || 'image'} ${size ? `(${humanSize(size)})` : ''}`;
             wrapper.appendChild(caption);
             messageDiv.appendChild(header); messageDiv.appendChild(wrapper); messages.appendChild(messageDiv);
-            if (scroll) messages.scrollTop = messages.scrollHeight;
+            if (stick && scroll) scrollToBottom(); else scrollBottomBtn.classList.add('show');
         }
 
         function updateUserCount() {
@@ -1018,31 +1056,20 @@
             inviteQRBtn.addEventListener('click', () => inviteBtn.click());
         })();
 
-        // Startup cleanup: purge any leftover "last peer" and show visible status
-        (function startupCleanup() {
-            try {
-                // Soft cleanup (safe if nothing is active)
-                cleanupAndDisconnect();
-            } catch {}
-            try {
-                const s = localStorage.getItem(LAST_PEER_KEY);
-                if (s) {
-                    const { peerId: lastPeer, roomId: lastRoom } = JSON.parse(s) || {};
-                    if (lastPeer && lastRoom) {
-                        const roomKey = `webpychat_room_${lastRoom}`;
-                        const stored = localStorage.getItem(roomKey);
-                        if (stored) {
-                            const arr = JSON.parse(stored).filter(p => p.peerId !== lastPeer);
-                            localStorage.setItem(roomKey, JSON.stringify(arr));
-                        }
-                    }
-                    localStorage.removeItem(LAST_PEER_KEY);
-                    // surface a small notice
-                    showDiag('Cleaned previous session leftovers.', 'success');
-                    setTimeout(hideDiag, 2500);
-                }
-            } catch {}
-        })();
+        // Scroll button behavior
+        messages.addEventListener('scroll', () => {
+            if (isAtBottom()) scrollBottomBtn.classList.remove('show');
+            else scrollBottomBtn.classList.add('show');
+        });
+        scrollBottomBtn.addEventListener('click', () => {
+            scrollToBottom();
+            scrollBottomBtn.classList.remove('show');
+        });
+
+        // On first render, ensure messages area scrolls if needed
+        window.addEventListener('load', () => {
+            scrollToBottom();
+        });
     </script>
 </body>
 </html>
